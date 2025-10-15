@@ -210,11 +210,28 @@ input[type="range"]::-moz-range-thumb {
 	border: 1px solid #ffffff;
 }
 
-.smoothness-info {
+.author-info {
 	font-size: 12px;
 	color: #00ffff;
 	text-align: center;
 	margin-top: 4px;
+}
+
+.author-info a {
+	color: #ffffff;
+	text-decoration: none;
+}
+
+.author-info a:hover {
+	text-decoration: underline;
+	color: #ffffff;
+}
+
+.author-info a:visited,
+.author-info a:active,
+.author-info a:focus {
+	color: #ffffff;
+	text-decoration: none;
 }
 
 .hidden-input {
