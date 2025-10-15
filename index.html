@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>ksArchVis</title>
+	<title>ArchVis WebGL</title>
 	<link rel="icon" href="./cog.svg" type="image/svg+xml">
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script type="module" crossorigin>(function(){const t=document.createElement("link").relList;if(t&&t.supports&&t.supports("modulepreload"))return;for(const n of document.querySelectorAll('link[rel="modulepreload"]'))o(n);new MutationObserver(n=>{for(const i of n)if(i.type==="childList")for(const c of i.addedNodes)c.tagName==="LINK"&&c.rel==="modulepreload"&&o(c)}).observe(document,{childList:!0,subtree:!0});function r(n){const i={};return n.integrity&&(i.integrity=n.integrity),n.referrerPolicy&&(i.referrerPolicy=n.referrerPolicy),n.crossOrigin==="use-credentials"?i.credentials="include":n.crossOrigin==="anonymous"?i.credentials="omit":i.credentials="same-origin",i}function o(n){if(n.ep)return;n.ep=!0;const i=r(n);fetch(n.href,i)}})();class U{static architectureToXML(t){let r=`<?xml version="1.0" encoding="UTF-8"?>
@@ -87,7 +87,9 @@
 						<input type="range" id="smoothnessSlider" min="0.05" max="0.5" step="0.05" value="0.15">
 						<span>MAX</span>
 					</div>
-					<div class="smoothness-info">Drag • Zoom • Movement</div>
+					<div class="smoothness-info">
+						© <a href="https://github.com/cziter15" target="_blank">Krzysztof Strehlau</a>
+					</div>
 				</div>
 			</div>
 		</div>
