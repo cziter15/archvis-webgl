@@ -5,8 +5,8 @@
 > **ArchVis WebGL** is a small interactive WebGL-based architecture visualization built with Three.js and Vite.<br>
 > Initialy vibe-coded with Claude 4.5 and GLM 4.5, then moved manually into Vite-based solution.
 >
-> It loads and saves architectures as XML and provides a 3D view with orbit/pan/zoom controls and animated nodes.<br>
-> A sample architecture is included for quick demos.
+> It loads and saves architectures as XML and provides a 3D view with of it.<br>
+> A sample architecture file is included for quick demos.
 
 ## ▶️ Quick start
 
