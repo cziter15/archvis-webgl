@@ -347,7 +347,7 @@ function createTextMesh(text, color) {
 	canvas.height = 128;
 
 	context.clearRect(0, 0, canvas.width, canvas.height);
-	context.font = 'Bold 60px Courier New, monospace';
+	context.font = '54px Orbitron, sans-serif';
 	context.textAlign = 'center';
 	context.textBaseline = 'middle';
 	context.shadowColor = color;
