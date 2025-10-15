@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<arch>
+  <node name="ROOT" pos="0,0,0" color="#00ffff" scale="1">
+    <node name="API Gateway" pos="10,5,0" color="#ff00ff" scale="0.8">
+      <node name="Auth Service" pos="15,8,5" color="#ffff00" scale="0.6" />
+      <node name="Rate Limiter" pos="15,8,-5" color="#ffff00" scale="0.6" />
+    </node>
+    <node name="Database Layer" pos="-10,5,0" color="#00ff00" scale="0.8">
+      <node name="Primary DB" pos="-15,8,5" color="#ffff00" scale="0.6" />
+      <node name="Cache" pos="-15,8,-5" color="#ffff00" scale="0.6" />
+    </node>
+    <node name="Workers" pos="0,-5,10" color="#ff6600" scale="0.8">
+      <node name="Job Queue" pos="5,-8,15" color="#ffff00" scale="0.6" />
+      <node name="Worker Pool" pos="-5,-8,15" color="#ffff00" scale="0.6" />
+    </node>
+  </node>
+  <legend>
+    <entry name="Core Services" color="#00ffff" />
+    <entry name="Modules" color="#ff00ff" />
+    <entry name="Components" color="#ffff00" />
+    <entry name="Data Layer" color="#00ff00" />
+  </legend>
+  <ui-info>
+    <title>MICROSERVICES ARCHITECTURE</title>
+  </ui-info>
+</arch>

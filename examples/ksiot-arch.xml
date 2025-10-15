@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<arch>
+  <node name="ksf" pos="0,10,0" color="#ff00ff" scale="2.2">
+  <node name="ksEventInterface" pos="-20,2,0" color="#00ffff" scale="1.5" />
+  <node name="ksApplication" pos="0,2,0" color="#00ffff" scale="1.5" />
+  <node name="ksAppRotator" pos="20,2,0" color="#00ffff" scale="1.5" />
+  <node name="misc" pos="-12,-6,0" color="#ff0080" scale="1.6">
+    <node name="ksCertFingerprint" pos="-17,-13,4" color="#8000ff" />
+    <node name="ksConfig" pos="-17,-13,-4" color="#8000ff" />
+    <node name="ksDomainQuery" pos="-12,-13,6" color="#8000ff" />
+    <node name="ksEventHandle" pos="-12,-13,-6" color="#8000ff" />
+    <node name="ksSimpleTimer" pos="-7,-13,4" color="#8000ff" />
+    <node name="ksWSServer" pos="-7,-13,-4" color="#8000ff" />
+  </node>
+  <node name="ksRtti" pos="12,-1,0" color="#ff0080" scale="1.6" />
+  <node name="ksComponent" pos="12,-6,0" color="#ff0080" scale="1.4">
+    <node name="ksConfigProvider" pos="4,-13,8" color="#8000ff">
+      <node name="ksMqttConfigProvider" pos="4,-16,11" color="#9370db" />
+    </node>
+    <node name="ksDevStatMqttReporter" pos="8,-13,5" color="#8000ff" />
+    <node name="ksDevicePortal" pos="12,-13,8" color="#8000ff" />
+    <node name="ksLed" pos="16,-13,5" color="#8000ff" />
+    <node name="ksMqttConnector" pos="20,-13,8" color="#8000ff" />
+    <node name="ksResetButton" pos="8,-13,-5" color="#8000ff" />
+    <node name="ksWifiConfigurator" pos="12,-13,-8" color="#8000ff" />
+    <node name="ksWifiConnector" pos="16,-13,-5" color="#8000ff" />
+  </node>
+  </node>
+  <legend>
+    <entry name="Core System" color="#ff00ff" />
+    <entry name="Interface Layer" color="#00ffff" />
+    <entry name="System Components" color="#ff0080" />
+    <entry name="Sub-modules" color="#8000ff" />
+    <entry name="Configuration" color="#9370db" />
+  </legend>
+  <ui-info>
+	<title>ksIotFrameworkLib arch</title>
+  </ui-info>
+</arch>
