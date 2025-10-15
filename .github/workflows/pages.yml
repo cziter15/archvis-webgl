@@ -5,77 +5,28 @@ on:
     branches: [ main, master ]
 
 jobs:
-  build-and-upload:
+  build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Install dependencies and run build (if present)
+      - name: Install dependencies and build
         run: |
-          # support nested project folder 'acrhvis' used in this workspace
-          PROJECT_DIR=.
-          if [ -f package.json ]; then
-            PROJECT_DIR=.
-          elif [ -f acrhvis/package.json ]; then
-            PROJECT_DIR=acrhvis
-          fi
+          npm ci
+          npm run build
 
-          echo "Using project dir: $PROJECT_DIR"
-          if [ -f "$PROJECT_DIR/package.json" ]; then
-            pushd "$PROJECT_DIR"
-            npm ci
-            npm run build --if-present
-            popd
-          fi
-
-      - name: Prepare build directory
-        run: |
-          rm -rf build || true
-          mkdir -p build
-
-          # prefer common build output folders inside project dir
-          if [ -d "$PROJECT_DIR/public" ]; then
-            cp -r "$PROJECT_DIR/public"/* build/
-            exit 0
-          fi
-          if [ -d "$PROJECT_DIR/dist" ]; then
-            cp -r "$PROJECT_DIR/dist"/* build/
-            exit 0
-          fi
-          if [ -d "$PROJECT_DIR/build" ] && [ -n "$(ls -A $PROJECT_DIR/build 2>/dev/null)" ]; then
-            cp -r "$PROJECT_DIR/build"/* build/
-            exit 0
-          fi
-
-          # fallback: copy project contents excluding .github, node_modules and .git
-          shopt -s dotglob || true
-          for f in "$PROJECT_DIR"/*; do
-            name=$(basename "$f")
-            if [ "$name" != ".github" ] && [ "$name" != "node_modules" ] && [ "$name" != ".git" ] && [ "$name" != "build" ]; then
-              cp -r "$f" build/
-            fi
-          done
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v1
+      - name: Publish to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          path: ./build
-
-  deploy-pages:
-    needs: build-and-upload
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-
-    steps:
-      - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v1
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
