@@ -287,7 +287,6 @@ document.getElementById('smoothnessSlider').addEventListener('change', (e) => {
 		general: invertedValue * 1.2
 	};
 	const percentage = Math.round(((0.55 - invertedValue) / 0.45) * 100);
-	document.getElementById('smoothnessDisplay').textContent = percentage + '%';
 	addMessage(`Smoothness set to ${percentage}%`);
 });
 
