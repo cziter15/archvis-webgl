@@ -8,6 +8,8 @@
 > It loads and saves architectures as XML and provides a 3D view with of it.<br>
 > A sample architecture file is included for quick demos.
 
+<img alt="image" src="https://github.com/user-attachments/assets/9474fdbc-1bc5-48b0-a8cc-ddaf17ef3e77" />
+
 ## ▶️ Quick start
 
 Prerequisites: Node.js (16+) and npm installed.
