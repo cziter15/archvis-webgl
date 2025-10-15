@@ -71,10 +71,10 @@ Below is the sample XML used by the app (also present in `src/main.js`):
 
 - The root element is `<arch>`.
 - The main scene root is the first `<node>` child of `<arch>`. Each `<node>` must include:
-  - `name` — string
-  - `pos` — three comma-separated numbers (x,y,z)
-  - `color` — hex color string, e.g. `#ff00ff`
-  - optional `scale` — number
+  - `name` - string
+  - `pos` - three comma-separated numbers (x,y,z)
+  - `color` - hex color string, e.g. `#ff00ff`
+  - optional `scale` - number
 - Nodes may nest arbitrarily via child `<node>` entries.
 - Optional `<legend>` and `<ui-info>` sections are supported.
 
