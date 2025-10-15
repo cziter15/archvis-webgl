@@ -61,7 +61,7 @@ body {
 	top: 24px;
 	left: 50%;
 	transform: translateX(-50%);
-	font-family: monospace;
+	font-family: 'Orbitron', monospace;
 	color: #ff00ff;
 	font-size: 24px;
 	font-weight: bold;
@@ -78,7 +78,7 @@ body {
 	position: absolute;
 	top: 24px;
 	left: 24px;
-	font-family: monospace;
+	font-family: 'Orbitron', monospace;
 	color: #00ffff;
 	font-size: 14px;
 	pointer-events: none;
@@ -129,7 +129,7 @@ body {
 	position: absolute;
 	top: 24px;
 	right: 24px;
-	font-family: monospace;
+	font-family: 'Orbitron', monospace;
 	color: #00ffff;
 	font-size: 14px;
 	pointer-events: all;
@@ -138,7 +138,7 @@ body {
 
 .button {
 	width: 100%;
-	font-family: monospace;
+	font-family: 'Orbitron', monospace;
 	color: #00ffff;
 	font-size: 12px;
 	background: rgba(0, 0, 0, 0.5);
