@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>ksArchVis</title>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+	<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+	<div id="canvas"></div>
+	<div class="ui-container">
+		<div class="title" id="title">ARCHITECTURE VISUALIZATION</div>
+		<div class="left-panel" id="leftPanel">
+			<div class="panel-box">
+				<div class="legend" id="legendContainer" style="display: none;">
+					<div class="legend-title">LEGEND:</div>
+					<div id="legendItems"></div>
+				</div>
+				<div class="controls-text">
+					ORBIT MODE<br>
+					LEFT DRAG - ROTATE VIEW<br>
+					RIGHT/MIDDLE DRAG - PAN<br>
+					SCROLL - ZOOM<br>
+					WASD - MOVE CAMERA<br>
+					SPACE/SHIFT - UP/DOWN<br>
+					AUTO-ROTATES AFTER 3s
+					<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #00ffff;">
+						<span style="color: #ffff00;">U</span> - TOGGLE UI<br>
+						<span style="color: #ffff00;">Q</span> - TOGGLE CURSOR
+					</div>
+					<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #00ffff;">
+						<div style="color: #00ccff; font-size: 12px; margin-bottom: 4px;">SMOOTHNESS:</div>
+						<div style="color: #ffffff; font-size: 12px;" id="smoothnessDisplay">55%</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="right-panel" id="rightPanel">
+			<div class="panel-box">
+				<button class="button" id="saveBtn">💾 SAVE</button>
+				<button class="button" id="loadBtn">📁 LOAD</button>
+				<button class="button" id="sampleBtn">📋 SAMPLE</button>
+				<div class="smoothness-control">
+					<div class="smoothness-label">SMOOTHNESS:</div>
+					<div class="slider-container">
+						<span>MIN</span>
+						<input type="range" id="smoothnessSlider" min="0.05" max="0.5" step="0.05" value="0.15">
+						<span>MAX</span>
+					</div>
+					<div class="smoothness-info">Drag • Zoom • Movement</div>
+				</div>
+			</div>
+		</div>
+		<div class="message-display" id="messageDisplay"></div>
+		<div class="ui-toggle" id="uiToggle">Press U to show UI</div>
+	</div>
+	<input type="file" id="xmlFileInput" class="hidden-input" accept=".xml">
+	<script type="module" src="src/main.js"></script>
+</body>
+</html>
