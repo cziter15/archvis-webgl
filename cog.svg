@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="64" height="64" role="img" aria-label="Cog favicon">
+  <title>Cog</title>
+  <!-- Simple cog made of a central circle and 8 teeth rectangles rotated around it -->
+  <rect x="11" y="0.5" width="2" height="4" fill="#0ff" rx="0.5" ry="0.5" transform="rotate(0 12 12)"/>
+  <rect x="11" y="0.5" width="2" height="4" fill="#0ff" rx="0.5" ry="0.5" transform="rotate(45 12 12)"/>
+  <rect x="11" y="0.5" width="2" height="4" fill="#0ff" rx="0.5" ry="0.5" transform="rotate(90 12 12)"/>
+  <rect x="11" y="0.5" width="2" height="4" fill="#0ff" rx="0.5" ry="0.5" transform="rotate(135 12 12)"/>
+  <rect x="11" y="0.5" width="2" height="4" fill="#0ff" rx="0.5" ry="0.5" transform="rotate(180 12 12)"/>
+  <rect x="11" y="0.5" width="2" height="4" fill="#0ff" rx="0.5" ry="0.5" transform="rotate(225 12 12)"/>
+  <rect x="11" y="0.5" width="2" height="4" fill="#0ff" rx="0.5" ry="0.5" transform="rotate(270 12 12)"/>
+  <rect x="11" y="0.5" width="2" height="4" fill="#0ff" rx="0.5" ry="0.5" transform="rotate(315 12 12)"/>
+  <circle cx="12" cy="12" r="4.2" fill="#001f3f"/>
+  <circle cx="12" cy="12" r="2.2" fill="#00ffff"/>
+</svg>
