@@ -35,10 +35,11 @@ npm run dev
 
 ## 🧩 Usage 
 
-- Click the `Load` button and pick an XML file that follows the project's arch XML format.
-- Click `Save` to download the current architecture as `architecture.xml`.
-- Click `Sample` to load the included example architecture.
-- Toggle UI: press `U`. Toggle cursor: press `Q`.
+- Click the `LOAD` button and pick an XML file that follows the project's arch XML format.
+- Click `SAVE` to download the current architecture as `architecture.xml`.
+- Click `LOAD SAMPLE` to load the included example architecture.
+- Toggle UI: press `U`.
+- Toggle cursor: press `Q`.
 
 ## 📜 Example XML
 
