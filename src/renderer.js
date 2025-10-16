@@ -21,6 +21,7 @@ export class ArchRenderer {
 	this.camera.lookAt(0, 0, 0);
 
 	this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+	this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 	this.renderer.setSize(window.innerWidth, window.innerHeight);
 	this.renderer.setClearColor(0x000510);
 	canvas.appendChild(this.renderer.domElement);
@@ -28,6 +29,8 @@ export class ArchRenderer {
 	this._setupLighting();
 	this._setupParticles();
 	this._setupGizmo();
+
+	this._bindResize();
 
 	this.nodes = [];
 	this.lines = [];
@@ -331,8 +334,18 @@ export class ArchRenderer {
   resize(w = window.innerWidth, h = window.innerHeight) {
 	this.camera.aspect = w / h;
 	this.camera.updateProjectionMatrix();
+	this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 	this.renderer.setSize(w, h);
   }
+
+	// Automatically handle window resizes
+	_bindResize() {
+		// use arrow fn to keep `this`
+		const onResize = () => this.resize(window.innerWidth, window.innerHeight);
+		window.addEventListener('resize', onResize);
+		// store reference if needed later
+		this._onResize = onResize;
+	}
 
 	startLoop(inputState, keys, mobile) {
 	if (this._loopRunning) return;
