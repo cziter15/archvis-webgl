@@ -1,5 +1,5 @@
 # 🖥️ ArchVis WebGL
-[![GitHub Pages](https://github.com/cziter15/archvis-webgl/actions/workflows/pages.yml/badge.svg)](https://cziter15.github.io/archvis-webgl/) [![Lines of Code](https://img.shields.io/endpoint?color=bl[...]
+[![GitHub Pages](https://github.com/cziter15/archvis-webgl/actions/workflows/pages.yml/badge.svg)](https://cziter15.github.io/archvis-webgl/) [![Lines of Code](https://img.shields.io/endpoint?color=blue&url=https://ghloc.vercel.app/api/cziter15/archvis-webgl/badge?filter=.html$,.js$,.css$)](https://github.com/cziter15/archvis-webgl)
 
 > **ArchVis WebGL** is a small interactive WebGL-based architecture visualization built with Three.js and Vite.<br>
 > Initialy vibe-coded with Claude 4.5 and GLM 4.5, then moved manually into Vite-based solution.
