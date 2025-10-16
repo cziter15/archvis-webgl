@@ -1098,7 +1098,6 @@ function populateEditPanelForSelected() {
 			`;
 			// re-wire the add/delete handlers (they already exist on document load, so no-op if present)
 			try { attachImmediateEditHandlers(); } catch (e) {}
-			try { document.getElementById('addChildBtn').addEventListener('click', () => {}); } catch (e) {}
 		}
 		// now set values
 		const nameIn2 = document.getElementById('editName');
@@ -1481,7 +1480,7 @@ function attachImmediateEditHandlers() {
 try { attachImmediateEditHandlers(); } catch (e) {}
 
 // Add child to selected node (used from edit panel only)
-document.getElementById('addChildBtn').addEventListener('click', () => {
+function addChildAction() {
 	if (!editMode) {
 		addMessage('Enter Edit mode to add nodes.');
 		return;
@@ -1516,10 +1515,14 @@ document.getElementById('addChildBtn').addEventListener('click', () => {
 
 	rebuildScene();
 	addMessage('Child node added');
-});
+}
+
+// wire initial button if present
+const initialAddChildBtn = document.getElementById('addChildBtn');
+if (initialAddChildBtn) initialAddChildBtn.addEventListener('click', addChildAction);
 
 // Delete selected node
-document.getElementById('deleteNodeBtn').addEventListener('click', () => {
+function deleteNodeAction() {
 	if (!selectedNode) return;
 	const id = selectedNode.userData.id;
 	// recursive remove function
@@ -1546,6 +1549,47 @@ document.getElementById('deleteNodeBtn').addEventListener('click', () => {
 	selectedNode = null;
 	rebuildScene();
 	addMessage('Node deleted');
+}
+
+// wire initial delete button if present
+const initialDeleteBtn = document.getElementById('deleteNodeBtn');
+if (initialDeleteBtn) initialDeleteBtn.addEventListener('click', deleteNodeAction);
+
+// Delegated handlers for dynamically-recreated controls inside edit panel
+document.addEventListener('click', (e) => {
+	const addBtn = e.target.closest && e.target.closest('#addChildBtn');
+	if (addBtn) {
+		e.preventDefault();
+		addChildAction();
+		return;
+	}
+	const delBtn = e.target.closest && e.target.closest('#deleteNodeBtn');
+	if (delBtn) {
+		e.preventDefault();
+		deleteNodeAction();
+		return;
+	}
+});
+
+// Delegated change handler for legend assignment select (handles recreated select)
+document.addEventListener('change', (e) => {
+	if (!e.target) return;
+	if (e.target.id !== 'assignLegendSelect') return;
+	if (!selectedNode) return;
+	const sel = e.target;
+	const selectedLegendId = sel.value === '' ? '' : sel.value;
+	const archNode = findNodeById(architecture.root, selectedNode.userData.id);
+	if (!archNode) return;
+	if (!selectedLegendId) {
+		delete archNode.category;
+	} else {
+		archNode.category = selectedLegendId;
+		const entry = architecture.legend.find(e2 => e2.id === selectedLegendId);
+		if (entry) updateSceneNodeColor(selectedNode, entry.color);
+	}
+	rebuildScene();
+	renderLegendAssignSelect();
+	populateEditPanelForSelected();
 });
 
 // Toggle edit mode (desktop only)
