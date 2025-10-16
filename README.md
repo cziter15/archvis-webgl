@@ -7,6 +7,12 @@
 > It loads and saves architectures as XML and provides a 3D view with of it.<br>
 > A sample architecture file is included for quick demos.
 
+<p align="center">
+  <a href="https://cziter15.github.io/archvis-webgl/" target="_blank">
+    <img src="https://img.shields.io/badge/OPEN%20ON%20GITHUB%20PAGES-0078D7?style=for-the-badge&logo=github&logoColor=white" alt="Open on GitHub Pages">
+  </a>
+</p>
+
 <img alt="image" src="https://github.com/user-attachments/assets/d1dfc317-96ae-45f8-8f8b-e06b6e2dc9ff" />
 
 ## ▶️ Quick start
