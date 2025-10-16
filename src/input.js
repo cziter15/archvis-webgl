@@ -43,16 +43,7 @@ export class InputHandler {
   }
 
   _init() {
-	const style = document.createElement('style');
-	style.textContent = `
-	  .hide-cursor {
-		cursor: none;
-	  }
-	  .hide-ui .ui-container {
-		display: none !important;
-	  }
-	`;
-	document.head.appendChild(style);
+		// CSS helpers (hide-cursor, hide-ui) are defined in css/style.css
 	document.addEventListener('keydown', this._handleKeyDown.bind(this));
 	document.addEventListener('keyup', this._handleKeyUp.bind(this));
 	document.addEventListener('mousedown', this._handleMouseDown.bind(this));
@@ -126,7 +117,7 @@ export class InputHandler {
 	this.renderer.gizmoPointerUp();
 
 	if (wasGizmoDragging) {
-	  document.body.style.cursor = 'default';
+	  document.body.classList.remove('grabbing');
 	  if (this.app.selectedNode) {
 		  const archNode = ArchModel.findById(this.app.model.root, this.app.selectedNode.userData.id);
 		  if (archNode) {
@@ -175,7 +166,7 @@ export class InputHandler {
 	this.raycaster.setFromCamera(this.mouse, this.renderer.camera);
 
 	if (this.renderer.gizmoPointerDown(this.raycaster)) {
-	  document.body.style.cursor = 'grabbing';
+	  document.body.classList.add('grabbing');
 	  e.preventDefault();
 	}
   }

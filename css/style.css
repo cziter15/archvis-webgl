@@ -257,6 +257,40 @@ input[type="range"]::-moz-range-thumb {
 	overflow-y: auto;
 }
 
+/* Utility helpers moved from inline attributes */
+.hidden { display: none; }
+
+/* Divider used inside controls block */
+.controls-divider { margin-top: 8px; padding-top: 8px; border-top: 1px solid #00ffff; }
+
+/* Small highlighted hotkey span */
+.hotkey { color: #ffff00; }
+
+/* Reusable select style for assign legend */
+.assign-legend-select { flex: 1; padding: 6px; background: rgba(0,0,0,0.6); border: 1px solid #00ffff; color: #00ffff; }
+
+/* Message shown when no node selected in editor */
+.empty-edit-msg { color: #00ffff; text-align: center; padding: 20px; font-size: 12px; }
+
+/* Cursor helper for dragging gizmo */
+.grabbing { cursor: grabbing !important; }
+
+/* Toggleable helpers previously injected from JS */
+.hide-cursor { cursor: none; }
+.hide-ui .ui-container { display: none !important; }
+
+/* Reusable flex row used around selects and similar */
+.flex-row { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+
+/* Default large legend swatch (28px) used in editors */
+.legend-swatch { width: 28px; height: 28px; border: 1px solid #00ffff; background: #00ffff; box-sizing: border-box; cursor: pointer; }
+
+/* Small legend color square used in list */
+.legend-color { width: 12px; height: 12px; border: 1px solid rgba(255,255,255,0.1); box-sizing: border-box; }
+
+/* Legend list name used in editor / display */
+.legend-name { flex: 1; color: #00ffff; font-size: 12px; }
+
 /* Ensure legend entries are stacked vertically (tighter spacing) */
 #legendList {
 	display: flex;

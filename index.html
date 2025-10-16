@@ -1,107 +1,102 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-	<meta http-equiv="Pragma" content="no-cache" />
-	<meta http-equiv="Expires" content="0" />
-	<title>ArchVis WebGL</title>
-	<link rel="icon" href="/cog.svg" type="image/svg+xml">
-	<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
-	<link rel="stylesheet" href="./css/style.css">
-</head>
-<body>
-	<div id="canvas"></div>
-	<div class="ui-container">
-		<div class="title" id="title">ARCHITECTURE VISUALIZATION</div>
-		<div class="left-panel" id="leftPanel">
-			<div class="panel-box">
-				<div class="legend" id="legendContainer" style="display: none;">
-					<div class="legend-title">LEGEND:</div>
-					<div id="legendItems"></div>
-				</div>
-				<div class="controls-text">
-					ORBIT MODE<br>
-					LEFT DRAG - ROTATE VIEW<br>
-					RIGHT/MIDDLE DRAG - PAN<br>
-					SCROLL - ZOOM<br>
-					WASD - MOVE CAMERA<br>
-					SPACE/SHIFT - UP/DOWN<br>
-					AUTO-ROTATES AFTER 3s
-					<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #00ffff;">
-						<span style="color: #ffff00;">U</span> - TOGGLE UI<br>
-						<span style="color: #ffff00;">Q</span> - TOGGLE CURSOR
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+		<meta http-equiv="Pragma" content="no-cache" />
+		<meta http-equiv="Expires" content="0" />
+		<title>ArchVis WebGL</title>
+		<link rel="icon" href="/cog.svg" type="image/svg+xml">
+		<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+		<link rel="stylesheet" href="./css/style.css">
+	</head>
+	<body>
+		<div id="canvas"></div>
+		<div class="ui-container">
+			<div class="title" id="title">ARCHITECTURE VISUALIZATION</div>
+			<div class="left-panel" id="leftPanel">
+				<div class="panel-box">
+					<div class="legend hidden" id="legendContainer">
+						<div class="legend-title">LEGEND:</div>
+						<div id="legendItems"></div>
 					</div>
-				</div>
-				<div class="author-info">© <a href="https://github.com/cziter15" target="_blank">K. STREHLAU</a></div>
-			</div>
-		</div>
-		<div class="right-panel" id="rightPanel">
-			<div class="panel-box">
-				<button class="button" id="saveBtn">💾 SAVE</button>
-				<button class="button" id="loadBtn">📁 LOAD</button>
-				<button class="button" id="sampleBtn">📋 LOAD SAMPLE</button>
-				<button class="button" id="editBtn">✏️ EDIT</button>
-				<div class="smoothness-control">
-					<div class="smoothness-label">CAMERA SMOOTHNESS:</div>
-					<div class="slider-container">
-						<span>MIN</span>
-						<input type="range" id="smoothnessSlider" min="0.05" max="0.5" step="0.05" value="0.15">
-						<span>MAX</span>
-					</div>
-				</div>
-				<div class="legend-editor" id="legendEditor" style="display:none;">
-					<div class="legend-title" style="font-size:12px;color:#00ccff;">LEGEND EDITOR</div>
-					<div id="legendList"></div>
-					<div class="legend-row">
-						<input type="text" id="newLegendName" placeholder="Name" />
-						<div id="newLegendSwatch" style="width:28px;height:28px;border:1px solid #00ffff;background:#00ffff;cursor:pointer;"></div>
-						<button class="button small" id="addLegendBtn">ADD</button>
-					</div>
-				</div>
-
-				<div class="legend-editor" id="editPanel" aria-hidden="true" style="display:none;">
-					<div class="legend-title" style="font-size:12px;color:#00ccff;">NODE EDITOR</div>
-					<div id="editContent">
-						<div class="edit-row"><label>Name</label><input type="text" id="editName"></div>
-						<div class="edit-row"><label>Scale</label><input type="number" id="editScale" step="0.1" min="0.1"></div>
-						<div class="edit-row"><label>Pos X</label><input type="number" id="editPosX" step="0.1"></div>
-						<div class="edit-row"><label>Pos Y</label><input type="number" id="editPosY" step="0.1"></div>
-						<div class="edit-row"><label>Pos Z</label><input type="number" id="editPosZ" step="0.1"></div>
-						<div class="edit-actions">
-							<button class="button small" id="addChildBtn">+ CHILD</button>
-							<button class="button small danger" id="deleteNodeBtn">DELETE</button>
+					<div class="controls-text">
+						ORBIT MODE<br>
+						LEFT DRAG - ROTATE VIEW<br>
+						RIGHT/MIDDLE DRAG - PAN<br>
+						SCROLL - ZOOM<br>
+						WASD - MOVE CAMERA<br>
+						SPACE/SHIFT - UP/DOWN<br>
+						AUTO-ROTATES AFTER 3s
+						<div class="controls-divider">
+							<span class="hotkey">U</span> - TOGGLE UI<br>
+							<span class="hotkey">Q</span> - TOGGLE CURSOR
 						</div>
 					</div>
+					<div class="author-info">© <a href="https://github.com/cziter15" target="_blank">K. STREHLAU</a></div>
+				</div>
+			</div>
+			<div class="right-panel" id="rightPanel">
+				<div class="panel-box">
+					<button class="button" id="saveBtn">💾 SAVE</button>
+					<button class="button" id="loadBtn">📁 LOAD</button>
+					<button class="button" id="sampleBtn">📋 LOAD SAMPLE</button>
+					<button class="button" id="editBtn">✏️ EDIT</button>
+					<div class="smoothness-control">
+						<div class="smoothness-label">CAMERA SMOOTHNESS:</div>
+						<div class="slider-container">
+							<span>MIN</span>
+							<input type="range" id="smoothnessSlider" min="0.05" max="0.5" step="0.05" value="0.15">
+							<span>MAX</span>
+						</div>
 					</div>
-                
+					<div class="legend-editor hidden" id="legendEditor">
+						<div class="legend-title">LEGEND EDITOR</div>
+						<div id="legendList"></div>
+						<div class="legend-row">
+							<input type="text" id="newLegendName" placeholder="Name" />
+							<div id="newLegendSwatch" class="legend-swatch"></div>
+							<button class="button small" id="addLegendBtn">ADD</button>
+						</div>
+					</div>
+					<div class="legend-editor hidden" id="editPanel" aria-hidden="true">
+						<div class="legend-title">NODE EDITOR</div>
+						<div id="editContent">
+							<div class="edit-row"><label>Name</label><input type="text" id="editName"></div>
+							<div class="edit-row"><label>Scale</label><input type="number" id="editScale" step="0.1" min="0.1"></div>
+							<div class="edit-row"><label>Pos X</label><input type="number" id="editPosX" step="0.1"></div>
+							<div class="edit-row"><label>Pos Y</label><input type="number" id="editPosY" step="0.1"></div>
+							<div class="edit-row"><label>Pos Z</label><input type="number" id="editPosZ" step="0.1"></div>
+							<div class="edit-actions">
+								<button class="button small" id="addChildBtn">+ CHILD</button>
+								<button class="button small danger" id="deleteNodeBtn">DELETE</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="message-display" id="messageDisplay"></div>
+			<div class="ui-toggle" id="uiToggle">Press U to show UI</div>
+		</div>
+		<div id="mobileControls" class="mobile-controls" aria-hidden="true">
+			<div id="leftStick" class="stick left-stick" aria-label="move joystick">
+				<div class="stick-knob"></div>
+			</div>
+			<div id="rightStick" class="stick right-stick" aria-label="look joystick">
+				<div class="stick-knob"></div>
+			</div>
+			<div class="action-buttons">
+				<button id="btnUp" class="action-btn">▲</button>
+				<button id="btnDown" class="action-btn">▼</button>
 			</div>
 		</div>
-		<div class="message-display" id="messageDisplay"></div>
-		<div class="ui-toggle" id="uiToggle">Press U to show UI</div>
-	</div>
-    
-	<div id="mobileControls" class="mobile-controls" aria-hidden="true">
-		<div id="leftStick" class="stick left-stick" aria-label="move joystick">
-			<div class="stick-knob"></div>
+		<div class="mobile-menu" id="mobileMenu">
+			<button id="mobileSaveBtn" class="mobile-action">💾</button>
+			<button id="mobileLoadBtn" class="mobile-action">📁</button>
+			<button id="mobileSampleBtn" class="mobile-action">📋</button>
 		</div>
-		<div id="rightStick" class="stick right-stick" aria-label="look joystick">
-			<div class="stick-knob"></div>
-		</div>
-		<div class="action-buttons">
-			<button id="btnUp" class="action-btn">▲</button>
-			<button id="btnDown" class="action-btn">▼</button>
-		</div>
-	</div>
-
-    
-	<div class="mobile-menu" id="mobileMenu">
-		<button id="mobileSaveBtn" class="mobile-action">💾</button>
-		<button id="mobileLoadBtn" class="mobile-action">📁</button>
-		<button id="mobileSampleBtn" class="mobile-action">📋</button>
-	</div>
-	<input type="file" id="xmlFileInput" class="hidden-input" accept=".xml">
-	<script type="module" src="./src/main.js"></script>
-</body>
+		<input type="file" id="xmlFileInput" class="hidden-input" accept=".xml">
+		<script type="module" src="./src/main.js"></script>
+	</body>
 </html>

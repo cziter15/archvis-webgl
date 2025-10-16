@@ -30,19 +30,19 @@ export class UI {
 	const smooth = document.querySelector('.smoothness-control');
 
 	if (active) {
-	  if (nodeHeader) nodeHeader.style.display = '';
-	  if (editPanel) { editPanel.style.display = ''; editPanel.setAttribute('aria-hidden', 'false'); }
-	  if (legendEditor) legendEditor.style.display = '';
-	  if (smooth) smooth.style.display = 'none';
+	  if (nodeHeader) nodeHeader.classList.remove('hidden');
+	  if (editPanel) { editPanel.classList.remove('hidden'); editPanel.setAttribute('aria-hidden', 'false'); }
+	  if (legendEditor) legendEditor.classList.remove('hidden');
+	  if (smooth) smooth.classList.add('hidden');
 	  this.addMessage('Edit mode: use arrows to move nodes');
 	  this.app.deselectNode();
 	  this.renderLegendEditor();
 	  this.renderEmptyEditPanel();
 	} else {
-	  if (nodeHeader) nodeHeader.style.display = 'none';
-	  if (editPanel) { editPanel.style.display = 'none'; editPanel.setAttribute('aria-hidden', 'true'); }
-	  if (legendEditor) legendEditor.style.display = 'none';
-	  if (smooth) smooth.style.display = '';
+	  if (nodeHeader) nodeHeader.classList.add('hidden');
+	  if (editPanel) { editPanel.classList.add('hidden'); editPanel.setAttribute('aria-hidden', 'true'); }
+	  if (legendEditor) legendEditor.classList.add('hidden');
+	  if (smooth) smooth.classList.remove('hidden');
 	  this._setButtonsVisibility(['saveBtn', 'loadBtn', 'sampleBtn'], true);
 	  this.addMessage('Edit mode disabled');
 	}
@@ -52,7 +52,7 @@ export class UI {
 	ids.forEach(id => {
 	  const el = document.getElementById(id);
 	  if (!el) return;
-	  el.style.display = show ? '' : 'none';
+	  el.classList.toggle('hidden', !show);
 	});
   }
 
@@ -77,8 +77,8 @@ export class UI {
 	}
 	
 	const legendContainer = document.getElementById('legendContainer');
-	if (legendContainer && this.app.model.legend.length > 0) {
-	  legendContainer.style.display = 'block';
+	if (legendContainer) {
+	  legendContainer.classList.toggle('hidden', !(this.app.model.legend.length > 0));
 	}
 	
 	(this.app.model.legend || []).forEach(entry => {
@@ -115,21 +115,28 @@ export class UI {
 	  const row = document.createElement('div');
 	  row.className = 'legend-row';
 
-	  if (this.editMode) {
-		row.innerHTML = `
-		  <input type="text" class="legend-name" data-idx="${idx}" value="${entry.name}" />
-		  <div class="legend-swatch" data-idx="${idx}" style="width:28px;height:28px;border:1px solid #00ffff;background:${entry.color};cursor:pointer;"></div>
-		  <button class="button small legend-remove" data-idx="${idx}">DEL</button>
-		`;
-	  } else {
-		row.innerHTML = `
-		  <div style="flex:1;color:#00ffff">${entry.name}</div>
-		  <div style="width:12px;height:12px;background:${entry.color};border:1px solid rgba(255,255,255,0.1);"></div>
-		`;
-	  }
+		  if (this.editMode) {
+			row.innerHTML = `
+			  <input type="text" class="legend-name" data-idx="${idx}" value="${entry.name}" />
+			  <div class="legend-swatch" data-idx="${idx}" style="background:${entry.color};"></div>
+			  <button class="button small legend-remove" data-idx="${idx}">DEL</button>
+			`;
+		  } else {
+			row.innerHTML = `
+			  <div class="legend-name">${entry.name}</div>
+			  <div class="legend-color" style="background:${entry.color};"></div>
+			`;
+		  }
 
 	  list.appendChild(row);
 	});
+
+	// if there are no legend entries and not in editMode, hide the editor list region
+	const legendEditor = document.getElementById('legendEditor');
+	if (legendEditor) {
+	  const hasLegend = (this.app.model.legend || []).length > 0;
+	  legendEditor.classList.toggle('hidden', !this.editMode && !hasLegend);
+	}
 
 	if (this.editMode) {
 	  this._setupLegendEventListeners(list);
@@ -235,17 +242,17 @@ export class UI {
 	if (!panel || !content) return;
 
 	if (!this.editMode || !this.app.selectedNode) {
-	  panel.style.display = 'none';
+	  panel.classList.add('hidden');
 	  return;
 	}
 
-	panel.style.display = 'block';
+	panel.classList.remove('hidden');
 	const sceneNode = this.app.selectedNode;
 	const archNode = ArchModel.findById(this.app.model.root, sceneNode.userData.id);
 
 	content.innerHTML = `
 	  <div class="edit-row"><label>Name</label><input type="text" id="editName" value="${archNode?.name || ''}"></div>
-	  <div style="display:flex;gap:8px;margin-top:8px"><select id="assignLegendSelect" style="flex:1;padding:6px;background:rgba(0,0,0,0.6);border:1px solid #00ffff;color:#00ffff;"></select></div>
+	  <div class="flex-row"><select id="assignLegendSelect" class="assign-legend-select"></select></div>
 	  <div class="edit-row"><label>Scale</label><input type="number" id="editScale" step="0.1" min="0.1" value="${archNode?.scale || 1}"></div>
 	  <div class="edit-row"><label>Pos X</label><input type="number" id="editPosX" step="0.1" value="${sceneNode.position.x.toFixed(2)}"></div>
 	  <div class="edit-row"><label>Pos Y</label><input type="number" id="editPosY" step="0.1" value="${sceneNode.position.y.toFixed(2)}"></div>
@@ -268,7 +275,7 @@ export class UI {
 	if (!panel || !content) return;
 
 	panel.style.display = 'block';
-	content.innerHTML = '<div style="color:#00ffff;text-align:center;padding:20px;">Select a node to edit it</div>';
+	content.innerHTML = '<div class="empty-edit-msg">Select a node to edit it</div>';
   }
 
   updateEditPanelValues() {
