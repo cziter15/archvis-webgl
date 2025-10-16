@@ -43,7 +43,6 @@ export class InputHandler {
   }
 
   _init() {
-		// CSS helpers (hide-cursor, hide-ui) are defined in css/style.css
 	document.addEventListener('keydown', this._handleKeyDown.bind(this));
 	document.addEventListener('keyup', this._handleKeyUp.bind(this));
 	document.addEventListener('mousedown', this._handleMouseDown.bind(this));
@@ -233,25 +232,51 @@ export class InputHandler {
 	const btnDown = document.getElementById('btnDown');
 
 	if (btnUp) {
-	  btnUp.addEventListener('mousedown', () => { 
-		this.mobile.upPressed = true; 
-		btnUp.classList.add('active'); 
-	  });
-	  btnUp.addEventListener('mouseup', () => { 
-		this.mobile.upPressed = false; 
-		btnUp.classList.remove('active'); 
-	  });
+	  const downHandler = (ev) => {
+		this.mobile.upPressed = true;
+		btnUp.classList.add('active');
+		ev.preventDefault?.();
+	  };
+	  const upHandler = (ev) => {
+		this.mobile.upPressed = false;
+		btnUp.classList.remove('active');
+		ev.preventDefault?.();
+	  };
+
+	  btnUp.addEventListener('mousedown', downHandler);
+	  btnUp.addEventListener('mouseup', upHandler);
+	  btnUp.addEventListener('mouseleave', upHandler);
+
+	  btnUp.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen' || e.pointerType === 'mouse') downHandler(e); });
+	  btnUp.addEventListener('pointerup', (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen' || e.pointerType === 'mouse') upHandler(e); });
+
+	  btnUp.addEventListener('touchstart', (e) => { downHandler(e); }, { passive: false });
+	  btnUp.addEventListener('touchend', (e) => { upHandler(e); }, { passive: false });
+	  btnUp.addEventListener('touchcancel', (e) => { upHandler(e); }, { passive: false });
 	}
 
 	if (btnDown) {
-	  btnDown.addEventListener('mousedown', () => { 
-		this.mobile.downPressed = true; 
-		btnDown.classList.add('active'); 
-	  });
-	  btnDown.addEventListener('mouseup', () => { 
-		this.mobile.downPressed = false; 
-		btnDown.classList.remove('active'); 
-	  });
+	  const downHandlerD = (ev) => {
+		this.mobile.downPressed = true;
+		btnDown.classList.add('active');
+		ev.preventDefault?.();
+	  };
+	  const upHandlerD = (ev) => {
+		this.mobile.downPressed = false;
+		btnDown.classList.remove('active');
+		ev.preventDefault?.();
+	  };
+
+	  btnDown.addEventListener('mousedown', downHandlerD);
+	  btnDown.addEventListener('mouseup', upHandlerD);
+	  btnDown.addEventListener('mouseleave', upHandlerD);
+
+	  btnDown.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen' || e.pointerType === 'mouse') downHandlerD(e); });
+	  btnDown.addEventListener('pointerup', (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen' || e.pointerType === 'mouse') upHandlerD(e); });
+
+	  btnDown.addEventListener('touchstart', (e) => { downHandlerD(e); }, { passive: false });
+	  btnDown.addEventListener('touchend', (e) => { upHandlerD(e); }, { passive: false });
+	  btnDown.addEventListener('touchcancel', (e) => { upHandlerD(e); }, { passive: false });
 	}
   }
 

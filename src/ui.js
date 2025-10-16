@@ -24,13 +24,11 @@ export class UI {
 	  btn.textContent = active ? '✖ EXIT EDITOR' : '✏️ EDIT';
 	}
 
-	const nodeHeader = document.getElementById('nodeEditorHeader');
 	const editPanel = document.getElementById('editPanel');
 	const legendEditor = document.getElementById('legendEditor');
 	const smooth = document.querySelector('.smoothness-control');
 
 	if (active) {
-	  if (nodeHeader) nodeHeader.classList.remove('hidden');
 	  if (editPanel) { editPanel.classList.remove('hidden'); editPanel.setAttribute('aria-hidden', 'false'); }
 	  if (legendEditor) legendEditor.classList.remove('hidden');
 	  if (smooth) smooth.classList.add('hidden');
@@ -39,12 +37,14 @@ export class UI {
 	  this.renderLegendEditor();
 	  this.renderEmptyEditPanel();
 	} else {
-	  if (nodeHeader) nodeHeader.classList.add('hidden');
 	  if (editPanel) { editPanel.classList.add('hidden'); editPanel.setAttribute('aria-hidden', 'true'); }
 	  if (legendEditor) legendEditor.classList.add('hidden');
 	  if (smooth) smooth.classList.remove('hidden');
 	  this._setButtonsVisibility(['saveBtn', 'loadBtn', 'sampleBtn'], true);
 	  this.addMessage('Edit mode disabled');
+	  if (this.app?.selectedNode) {
+		this.app.deselectNode();
+	  }
 	}
   }
 
@@ -274,7 +274,9 @@ export class UI {
 	const content = document.getElementById('editContent');
 	if (!panel || !content) return;
 
-	panel.style.display = 'block';
+	// show the panel via class (avoid inline styles which override .hidden)
+	panel.classList.remove('hidden');
+	panel.setAttribute('aria-hidden', 'false');
 	content.innerHTML = '<div class="empty-edit-msg">Select a node to edit it</div>';
   }
 
