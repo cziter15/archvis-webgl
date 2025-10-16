@@ -5,10 +5,12 @@
 // - provide methods to rebuild scene from architecture model
 // - expose an animate/update method to be called from main loop
 
+import * as THREE from 'three';
+
 export class ArchRenderer {
     constructor({ mountElement, colorResolver = null, width = window.innerWidth, height = window.innerHeight } = {}) {
         this.mountElement = mountElement || document.getElementById('canvas');
-        this.colorResolver = colorResolver || (() => '#666666');
+        this.colorResolver = colorResolver || ((node, legend) => '#666666');
 
         this.scene = new THREE.Scene();
         this.scene.fog = new THREE.FogExp2(0x000510, 0.008);
@@ -56,7 +58,9 @@ export class ArchRenderer {
         this.scene.add(this.particles);
 
         // exposed state used by main.js animation loop (kept here for SRP)
-        this.frame = 0;
+    this.frame = 0;
+    // store selected id on renderer for centralization
+    this.selectedId = null;
         // gizmo state (for node editing)
         this.gizmoGroup = null;
         this.axisDragging = null; // 'x'|'y'|'z' or null
@@ -328,15 +332,16 @@ export class ArchRenderer {
 
         if (architecture.root && architecture.root.name && architecture.root.name !== 'Empty Architecture') {
             if (!architecture.root.id) architecture.root.id = (Math.random().toString(36).slice(2, 9));
-            const rootColor = this.colorResolver ? this.colorResolver(architecture.root) : '#666666';
+            const rootColor = this.colorResolver ? this.colorResolver(architecture.root, architecture.legend) : '#666666';
             const rootNode = this.createNode(architecture.root.name, architecture.root.pos, rootColor, architecture.root.scale, architecture.root.id);
             if (architecture.root.children && architecture.root.children.length > 0) {
-                this.createChildNodes(architecture.root.children, rootNode, architecture.root.pos, rootColor, null);
+                this.createChildNodes(architecture.root.children, rootNode, architecture.root.pos, rootColor, (node) => this.colorResolver(node, architecture.legend));
             }
         }
 
         // find and return selected node (if prevSelectedId present)
         if (prevSelectedId) {
+            this.selectedId = prevSelectedId;
             const found = this.getSceneNodeById(prevSelectedId);
             return found || null;
         }
@@ -387,5 +392,104 @@ export class ArchRenderer {
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(width, height);
+    }
+
+    // Start internal animation loop and camera control. Accepts references to input state
+    // and callbacks to integrate with UI/model. This allows renderer to own timing and
+    // keep gizmo/UI synchronized without main.js providing the loop.
+    startLoop(inputState, keys, mobile, callbacks = {}) {
+        if (this._loopRunning) return;
+        this._loopRunning = true;
+        this._loopStop = false;
+        const cb = Object.assign({ getSelectedNode: null, getEditMode: null, onPosUpdate: null, onUpdateSelectedIndicator: null }, callbacks);
+        let frame = 0;
+        const smoothFactors = window.smoothFactors || { drag: 0.25, zoom: 0.15, general: 0.12 };
+
+        const loop = () => {
+            if (this._loopStop) { this._loopRunning = false; return; }
+            requestAnimationFrame(loop);
+            frame++;
+
+            if (inputState && inputState.autoRotate) {
+                inputState.targetOrbitAngle += 0.001;
+            }
+            if (inputState && (inputState.isDragging || inputState.isMiddleDragging)) {
+                // resetAutoRotate should be called by input module when user interacts; keep logic local minimal
+            }
+
+            // Smoothly interpolate camera-related state contained in inputState
+            if (inputState) {
+                inputState.currentOrbitAngle += (inputState.targetOrbitAngle - inputState.currentOrbitAngle) * smoothFactors.drag;
+                inputState.currentOrbitRadius += (inputState.targetOrbitRadius - inputState.currentOrbitRadius) * smoothFactors.zoom;
+                inputState.currentOrbitHeight += (inputState.targetOrbitHeight - inputState.currentOrbitHeight) * smoothFactors.drag;
+                inputState.currentX += (inputState.targetX - inputState.currentX) * smoothFactors.general;
+                inputState.currentY += (inputState.targetY - inputState.currentY) * smoothFactors.general;
+                inputState.currentZ += (inputState.targetZ - inputState.currentZ) * smoothFactors.general;
+            }
+
+            // Movement from keys and mobile (keyboard movement allowed even while editing)
+            if (keys) {
+                const forward = new THREE.Vector3(-Math.sin(inputState.currentOrbitAngle), 0, -Math.cos(inputState.currentOrbitAngle));
+                const right = new THREE.Vector3(Math.cos(inputState.currentOrbitAngle), 0, -Math.sin(inputState.currentOrbitAngle));
+                const moveSpeed = 0.3;
+                if (keys.w) { inputState.targetX += forward.x * moveSpeed; inputState.targetZ += forward.z * moveSpeed; }
+                if (keys.s) { inputState.targetX -= forward.x * moveSpeed; inputState.targetZ -= forward.z * moveSpeed; }
+                if (keys.a) { inputState.targetX -= right.x * moveSpeed; inputState.targetZ -= right.z * moveSpeed; }
+                if (keys.d) { inputState.targetX += right.x * moveSpeed; inputState.targetZ += right.z * moveSpeed; }
+                if (keys.space) inputState.targetY += moveSpeed;
+                if (keys.shift) inputState.targetY -= moveSpeed;
+            }
+            if (mobile && inputState && !inputState.editMode && mobile.leftPos) {
+                const nx = mobile.leftPos.x / mobile.maxRadius;
+                const ny = -mobile.leftPos.y / mobile.maxRadius;
+                const moveSpeed = 0.3;
+                const forward = new THREE.Vector3(-Math.sin(inputState.currentOrbitAngle), 0, -Math.cos(inputState.currentOrbitAngle));
+                const right = new THREE.Vector3(Math.cos(inputState.currentOrbitAngle), 0, -Math.sin(inputState.currentOrbitAngle));
+                if (Math.abs(nx) > 0.12) {
+                    inputState.targetX += right.x * nx * moveSpeed * 0.8;
+                    inputState.targetZ += right.z * nx * moveSpeed * 0.8;
+                }
+                if (Math.abs(ny) > 0.12) {
+                    inputState.targetX += forward.x * ny * moveSpeed * 0.8;
+                    inputState.targetZ += forward.z * ny * moveSpeed * 0.8;
+                }
+            }
+
+            // mobile up/down
+            if (mobile && mobile.upPressed) inputState.targetY += 0.27;
+            if (mobile && mobile.downPressed) inputState.targetY -= 0.27;
+
+            // update camera position
+            if (this.camera && inputState) {
+                this.camera.position.x = inputState.currentX + Math.sin(inputState.currentOrbitAngle) * inputState.currentOrbitRadius;
+                this.camera.position.z = inputState.currentZ + Math.cos(inputState.currentOrbitAngle) * inputState.currentOrbitRadius;
+                this.camera.position.y = inputState.currentY + inputState.currentOrbitHeight;
+                this.camera.lookAt(inputState.currentX, inputState.currentY, inputState.currentZ);
+            }
+
+            // delegate scene updates
+            try { this.update(frame); } catch (e) {}
+
+            // if a selected node exists, keep overlays in sync and notify model update callback
+            const selectedNode = cb.getSelectedNode ? cb.getSelectedNode() : null;
+            if (selectedNode) {
+                try { if (cb.onUpdateSelectedIndicator) cb.onUpdateSelectedIndicator(); } catch (e) {}
+                try { this.updateGizmoPosition(selectedNode); } catch (e) {}
+            }
+
+            // render
+            try { this.render(); } catch (e) {}
+
+            // if gizmo moved, caller can inspect and persist via callbacks passed into startLoop
+            if (selectedNode && cb.onPosUpdate) {
+                try { cb.onPosUpdate(selectedNode.userData.id, selectedNode); } catch (e) {}
+            }
+        };
+
+        loop();
+    }
+
+    stopLoop() {
+        this._loopStop = true;
     }
 }

@@ -1,5 +1,6 @@
 // UI module: DOM-only helpers and editors
 // Initialize with dependencies from main.js via init(deps)
+import { findNodeById } from './archmodel.js';
 let D = {
   getArchitecture: null,
   setArchitecture: null,
@@ -15,11 +16,67 @@ let D = {
   archRenderer: null
 };
 
+// internal UI-owned edit mode flag
+let uiEditMode = false;
+
+export function getEditMode() {
+  return !!uiEditMode;
+}
+
+export function setEditMode(v) {
+  uiEditMode = !!v;
+  // keep MainApp in sync if provided
+  try { if (D && D.app) D.app.editMode = uiEditMode; } catch(e) {}
+  // apply DOM changes: mirror logic that was originally in wireUiHandlers
+  if (uiEditMode) {
+    try { renderLegendEditor(); renderLegendAssignSelect(); } catch(e) {}
+    const nodeHeader = document.getElementById('nodeEditorHeader'); if (nodeHeader) nodeHeader.style.display = '';
+    const editPanel = document.getElementById('editPanel'); if (editPanel) { editPanel.style.display = ''; editPanel.setAttribute('aria-hidden','false'); }
+    ensureSelectedIndicator(); ensureRenameInput();
+    addMessage('Edit mode enabled: use gizmo arrows to move nodes, double-click to rename.');
+    const legendEditor = document.getElementById('legendEditor'); if (legendEditor) legendEditor.style.display = '';
+    // hide primary actions while editing
+    ['saveBtn','loadBtn','sampleBtn'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      try { el.dataset._wasHiddenByEdit = el.style.display === 'none' ? '1' : ''; } catch(e){}
+      el.style.display = 'none';
+    });
+    const smooth = document.querySelector('.smoothness-control'); if (smooth) { try { smooth.dataset._wasHiddenByEdit = smooth.style.display === 'none' ? '1' : ''; } catch(e){} smooth.style.display = 'none'; }
+  } else {
+    const nodeHeader = document.getElementById('nodeEditorHeader'); if (nodeHeader) nodeHeader.style.display = 'none';
+    const editPanel = document.getElementById('editPanel'); if (editPanel) { editPanel.style.display = 'none'; editPanel.setAttribute('aria-hidden','true'); }
+    const selInd = window.__selectedIndicatorElement; if (selInd) selInd.style.display = 'none';
+    const renameIn = window.__renameInputEl; if (renameIn) renameIn.style.display = 'none';
+    try { D.archRenderer && D.archRenderer.hideGizmo(); } catch (e) {}
+    addMessage('Edit mode disabled. Auto-rotate will resume after inactivity.');
+    const legendEditor = document.getElementById('legendEditor'); if (legendEditor) legendEditor.style.display = 'none';
+    // restore primary actions visibility
+    ['saveBtn','loadBtn','sampleBtn'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      try {
+        if (el.dataset && el.dataset._wasHiddenByEdit) { delete el.dataset._wasHiddenByEdit; }
+        else { el.style.display = ''; }
+      } catch(e) { el.style.display = ''; }
+    });
+    const smooth = document.querySelector('.smoothness-control'); if (smooth) { try { if (smooth.dataset && smooth.dataset._wasHiddenByEdit) { delete smooth.dataset._wasHiddenByEdit; } else { smooth.style.display = ''; } } catch(e) { smooth.style.display = ''; } }
+  }
+  // update edit button text/state
+  const btn = document.getElementById('editBtn'); if (btn) { btn.classList.toggle('active', uiEditMode); btn.textContent = uiEditMode ? '✖️ EXIT EDITOR' : '✏️ EDIT'; }
+  }
+
 export function init(deps) {
   D = Object.assign(D, deps || {});
   // ensure basic UI wiring runs
   try { renderLegendAssignSelect(); } catch (e) {}
   try { renderLegendEditor(); } catch (e) {}
+  // attach handlers for edit workflow: wire top-level buttons and immediate edit inputs
+  try { attachImmediateEditHandlers(); } catch (e) { console.warn('attachImmediateEditHandlers failed', e); }
+  try { wireUiHandlers(); } catch (e) { console.warn('wireUiHandlers failed', e); }
+  // wire internal edit-mode accessors into D
+  D.getEditMode = getEditMode;
+  D.setEditMode = setEditMode;
 }
 
 // Simple UI message helper
@@ -31,10 +88,18 @@ export function addMessage(text) {
     msg.className = 'message';
     msg.textContent = text;
     messageDisplay.appendChild(msg);
-    setTimeout(() => { try { msg.remove(); } catch (e) {} }, 5000);
+    setTimeout(() => { try { messageDisplay.removeChild(msg); } catch (e) {} }, 5000);
   } catch (e) {
     console.warn('addMessage failed', e);
   }
+}
+
+// Set panels visible
+export function setPanelsVisible(visible) {
+  const rp = document.getElementById('rightPanel');
+  const lp = document.getElementById('leftPanel');
+  if (rp) rp.style.display = visible ? 'block' : 'none';
+  if (lp) lp.style.display = visible ? 'block' : 'none';
 }
 
 // Left panel legend display
@@ -77,6 +142,8 @@ export function renderLegendEditor() {
   const legend = arch.legend || [];
   const editMode = D.getEditMode ? D.getEditMode() : false;
   legend.forEach((entry, idx) => {
+    // ensure each legend entry has an id
+    if (!entry.id) entry.id = (Math.random().toString(36).slice(2,9));
     const row = document.createElement('div');
     row.className = 'legend-row';
     if (editMode) {
@@ -131,6 +198,38 @@ export function renderLegendEditor() {
       });
     });
   }
+}
+
+// wire top-level legend add controls (newLegendName, newLegendSwatch, addLegendBtn)
+function _wireLegendAddControls() {
+  try {
+    const nameEl = document.getElementById('newLegendName');
+    const swatch = document.getElementById('newLegendSwatch');
+    const addBtn = document.getElementById('addLegendBtn');
+    if (!nameEl || !swatch || !addBtn) return;
+    // color picker on swatch
+    swatch.addEventListener('click', (e) => {
+      const current = swatch.style.background || '#00ffff';
+      openColorPickerNear(swatch, current, (val) => {
+        swatch.style.background = val;
+      });
+    });
+    addBtn.addEventListener('click', (e) => {
+      const name = (nameEl.value || '').trim();
+      if (!name) { addMessage('Legend name required'); return; }
+      const color = swatch.style.background || '#00ffff';
+      const arch = D.getArchitecture ? D.getArchitecture() : null;
+      if (!arch) return;
+      if (!arch.legend) arch.legend = [];
+      const id = (Math.random().toString(36).slice(2,9));
+      arch.legend.push({ id, name, color });
+      try { updateLeftLegendDisplay(); } catch (e) {}
+      try { renderLegendEditor(); } catch (e) {}
+      try { renderLegendAssignSelect(); } catch (e) {}
+      try { D.rebuildScene && D.rebuildScene(); } catch (e) {}
+      nameEl.value = '';
+    });
+  } catch (err) { console.warn('wireLegendAddControls failed', err); }
 }
 
 // open color input
@@ -192,17 +291,26 @@ export function renderLegendAssignSelect() {
   });
   sel.onchange = function () {
     try {
-      const id = D.getSelectedId ? D.getSelectedId() : null;
+      // resolve selected node id (try D.getSelectedId, fallback to D.getSelectedNode)
+      let id = null;
+      if (D.getSelectedId) id = D.getSelectedId();
+      if (!id && D.getSelectedNode) {
+        const sn = D.getSelectedNode();
+        if (sn && sn.userData && sn.userData.id) id = sn.userData.id;
+      }
       if (!id) { console.warn('assignLegendSelect: no selected id'); return; }
       const sceneNode = D.getSelectedNode ? D.getSelectedNode() : (D.archRenderer ? D.archRenderer.getSceneNodeById(id) : null);
       const selectedLegendId = sel.value === '' ? '' : sel.value;
-  const arch = D.getArchitecture ? D.getArchitecture() : null;
-  const archNode = D.findNodeById && arch ? D.findNodeById(arch.root, id) : null;
+      const arch = D.getArchitecture ? D.getArchitecture() : null;
+      const archNode = D.findNodeById && arch ? D.findNodeById(arch.root, id) : null;
       if (!archNode) { console.warn('assignLegendSelect: arch node not found', id); return; }
       if (!selectedLegendId) delete archNode.category; else archNode.category = selectedLegendId;
-      const entry = (D.getArchitecture().legend || []).find(e => e.id === selectedLegendId);
-      if (entry && sceneNode) { try { D.updateSceneNodeColor && D.updateSceneNodeColor(sceneNode, entry.color); } catch (e) {} }
-      try { D.rebuildScene && D.rebuildScene(); } catch (e) {}
+      // refresh scene and UI so change is visible immediately
+      try { D.rebuildScene && D.rebuildScene(); } catch (e) { console.warn('rebuildScene failed', e); }
+      try { updateLeftLegendDisplay(); } catch (e) {}
+      try { renderLegendAssignSelect(); } catch (e) {}
+      try { if (typeof populateEditPanelForSelected === 'function') populateEditPanelForSelected(); } catch (e) {}
+      try { updateSelectedIndicatorPosition(); } catch (e) {}
     } catch (err) { console.error('assignLegendSelect onchange error', err); }
   };
 }
@@ -221,10 +329,113 @@ export function updateTitle() {
   try { document.title = t; } catch (e) {}
 }
 
+// Populate edit panel with selected node data
+export function populateEditPanelForSelected() {
+  const panel = document.getElementById('editPanel');
+  if (!panel) return;
+  // never show edit panel when not in edit mode
+  if (!D.getEditMode()) {
+    panel.style.display = 'none';
+    panel.setAttribute('aria-hidden', 'true');
+    return;
+  }
+  const editContent = document.getElementById('editContent');
+  // resolve transient scene node from selectedId if needed
+  const selectedNode = D.getSelectedNode ? D.getSelectedNode() : (D.getSelectedId() ? D.archRenderer.getSceneNodeById(D.getSelectedId()) : null);
+  if (!selectedNode) {
+    // show friendly message
+    panel.style.display = 'block';
+    panel.setAttribute('aria-hidden', 'false');
+    if (editContent) {
+      editContent.innerHTML = '<div style="color:#00ffff;font-size:12px;padding:6px;">Select a node to edit it</div>';
+    }
+    return;
+  }
+  // find architecture node
+  const arch = D.getArchitecture();
+  const archNode = findNodeById(arch.root, selectedNode.userData.id) || (arch.root.name === selectedNode.userData.name ? arch.root : null);
+  // fallback: try matching by name
+  const nameMatch = !archNode && (arch.root.name === selectedNode.userData.name ? arch.root : null);
+
+  panel.style.display = 'block';
+  panel.setAttribute('aria-hidden', 'false');
+  const nameIn = document.getElementById('editName');
+  const scaleIn = document.getElementById('editScale');
+  const posX = document.getElementById('editPosX');
+  const posY = document.getElementById('editPosY');
+  const posZ = document.getElementById('editPosZ');
+
+  const source = archNode || nameMatch ? (archNode || nameMatch) : null;
+  if (source) {
+    // ensure the full form is present in editContent (in case we previously showed the message)
+    const editContent = document.getElementById('editContent');
+    if (editContent && editContent.querySelector('#editName') == null) {
+      // rebuild inner HTML to include inputs (simple approach)
+      editContent.innerHTML = `
+        <div class="edit-row"><label>Name</label><input type="text" id="editName"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;"><select id="assignLegendSelect" style="flex:1;padding:6px;background:rgba(0,0,0,0.6);border:1px solid #00ffff;color:#00ffff;"></select></div>
+        <div class="edit-row"><label>Scale</label><input type="number" id="editScale" step="0.1" min="0.1"></div>
+        <div class="edit-row"><label>Pos X</label><input type="number" id="editPosX" step="0.1"></div>
+        <div class="edit-row"><label>Pos Y</label><input type="number" id="editPosY" step="0.1"></div>
+        <div class="edit-row"><label>Pos Z</label><input type="number" id="editPosZ" step="0.1"></div>
+        <div class="edit-actions"><button class="button small" id="addChildBtn">+ CHILD</button><button class="button small danger" id="deleteNodeBtn">DELETE</button></div>
+      `;
+      // re-wire the add/delete handlers (they already exist on document load, so no-op if present)
+      try { attachImmediateEditHandlers(); } catch (e) { console.warn('attachImmediateEditHandlers failed', e); }
+    }
+    // now set values
+    const nameIn2 = document.getElementById('editName');
+    const scaleIn2 = document.getElementById('editScale');
+    const posX2 = document.getElementById('editPosX');
+    const posY2 = document.getElementById('editPosY');
+    const posZ2 = document.getElementById('editPosZ');
+    if (nameIn2) nameIn2.value = source.name || selectedNode.userData.name || '';
+    if (scaleIn2) scaleIn2.value = source.scale || 1;
+    if (posX2) posX2.value = (selectedNode.position.x || 0).toFixed(2);
+    if (posY2) posY2.value = (selectedNode.position.y || 0).toFixed(2);
+    if (posZ2) posZ2.value = (selectedNode.position.z || 0).toFixed(2);
+  } else {
+    // fallback: ensure base inputs exist and populate them
+    if (nameIn) nameIn.value = selectedNode.userData.name || '';
+    if (scaleIn) scaleIn.value = 1;
+    if (posX) posX.value = (selectedNode.position.x || 0).toFixed(2);
+    if (posY) posY.value = (selectedNode.position.y || 0).toFixed(2);
+    if (posZ) posZ.value = (selectedNode.position.z || 0).toFixed(2);
+  }
+
+  // update legend assign select options and select current category if any
+  try { renderLegendAssignSelect(); } catch (e) { /* ignore */ }
+  const sel = document.getElementById('assignLegendSelect');
+  if (sel) {
+    // determine current category for this selected node from architecture (category stores legend id)
+    const archNodeForCategory = findNodeById(arch.root, selectedNode.userData.id);
+    let current = '';
+    if (archNodeForCategory && archNodeForCategory.category) {
+      current = archNodeForCategory.category;
+    }
+    // If current is numeric index (legacy), try to map to legend id
+    if (current !== '') {
+      const maybeIndex = parseInt(current, 10);
+      if (!isNaN(maybeIndex) && arch.legend && arch.legend[maybeIndex]) {
+        current = arch.legend[maybeIndex].id;
+      } else {
+        // ensure the id exists; if not, try to find by name
+        const foundById = (arch.legend || []).find(e => e.id === current);
+        if (!foundById) {
+          const foundByName = (arch.legend || []).find(e => e.name === current);
+          if (foundByName) current = foundByName.id;
+          else current = '';
+        }
+      }
+    }
+    sel.value = current || '';
+  }
+}
+
 // Selected indicator and rename input builders
 export function ensureSelectedIndicator() {
   if (window.__selectedIndicatorElement) return window.__selectedIndicatorElement;
-  const el = document.createElement('div'); el.className = 'selected-node-indicator'; document.body.appendChild(el); window.__selectedIndicatorElement = el; return el;
+  const el = document.createElement('div'); el.className = 'selected-node-indicator'; el.style.display = 'none'; document.body.appendChild(el); window.__selectedIndicatorElement = el; return el;
 }
 export function ensureRenameInput() {
   if (window.__renameInputEl) return window.__renameInputEl;
@@ -251,7 +462,12 @@ export function updateSelectedIndicatorPosition() {
   if (!el) return;
   const id = D.getSelectedId ? D.getSelectedId() : null;
   const sceneNode = D.getSelectedNode ? D.getSelectedNode() : (D.archRenderer ? D.archRenderer.getSceneNodeById(id) : null);
-  if (!sceneNode) return;
+  // hide indicator if not in edit mode or no node selected
+  if (!D.getEditMode || !D.getEditMode() || !sceneNode) {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'block';
   const pos = sceneNode.position.clone();
   const projected = pos.project(D.archRenderer.camera);
   const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
@@ -341,6 +557,10 @@ export function wireUiHandlers() {
       const smooth = document.querySelector('.smoothness-control'); if (smooth) { try { if (smooth.dataset && smooth.dataset._wasHiddenByEdit) { delete smooth.dataset._wasHiddenByEdit; } else { smooth.style.display = ''; } } catch(e) { smooth.style.display = ''; } }
     }
   });
+
+  // wire legend add controls once
+  try { _wireLegendAddControls(); } catch (e) {}
 }
 
-export default { init, addMessage, updateLeftLegendDisplay, renderLegendEditor, renderLegendAssignSelect, updateLegend, updateTitle, ensureSelectedIndicator, ensureRenameInput, showRenameInputAtSelected, updateSelectedIndicatorPosition, attachImmediateEditHandlers, wireUiHandlers };
+// include get/set edit mode in the default export for external callers
+export default { init, addMessage, setPanelsVisible, updateLeftLegendDisplay, renderLegendEditor, renderLegendAssignSelect, updateLegend, updateTitle, populateEditPanelForSelected, ensureSelectedIndicator, ensureRenameInput, showRenameInputAtSelected, updateSelectedIndicatorPosition, attachImmediateEditHandlers, wireUiHandlers, getEditMode, setEditMode };
