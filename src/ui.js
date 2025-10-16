@@ -312,6 +312,15 @@ export function wireUiHandlers() {
       ensureSelectedIndicator(); ensureRenameInput();
       addMessage('Edit mode enabled: use gizmo arrows to move nodes, double-click to rename.');
       const legendEditor = document.getElementById('legendEditor'); if (legendEditor) legendEditor.style.display = '';
+      // hide primary actions while editing
+      ['saveBtn','loadBtn','sampleBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        // remember if it was already hidden
+        try { el.dataset._wasHiddenByEdit = el.style.display === 'none' ? '1' : ''; } catch(e){}
+        el.style.display = 'none';
+      });
+      const smooth = document.querySelector('.smoothness-control'); if (smooth) { try { smooth.dataset._wasHiddenByEdit = smooth.style.display === 'none' ? '1' : ''; } catch(e){} smooth.style.display = 'none'; }
     } else {
       const nodeHeader = document.getElementById('nodeEditorHeader'); if (nodeHeader) nodeHeader.style.display = 'none';
       const editPanel = document.getElementById('editPanel'); if (editPanel) { editPanel.style.display = 'none'; editPanel.setAttribute('aria-hidden','true'); }
@@ -320,6 +329,16 @@ export function wireUiHandlers() {
       try { D.archRenderer && D.archRenderer.hideGizmo(); } catch (e) {}
       addMessage('Edit mode disabled. Auto-rotate will resume after inactivity.');
       const legendEditor = document.getElementById('legendEditor'); if (legendEditor) legendEditor.style.display = 'none';
+      // restore primary actions visibility
+      ['saveBtn','loadBtn','sampleBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        try {
+          if (el.dataset && el.dataset._wasHiddenByEdit) { delete el.dataset._wasHiddenByEdit; }
+          else { el.style.display = ''; }
+        } catch(e) { el.style.display = ''; }
+      });
+      const smooth = document.querySelector('.smoothness-control'); if (smooth) { try { if (smooth.dataset && smooth.dataset._wasHiddenByEdit) { delete smooth.dataset._wasHiddenByEdit; } else { smooth.style.display = ''; } } catch(e) { smooth.style.display = ''; } }
     }
   });
 }

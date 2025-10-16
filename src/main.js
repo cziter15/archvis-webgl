@@ -14,12 +14,7 @@ let uiVisible = true;
 let cursorVisible = true;
 let selectedId = null;
 
-// Simple UI message helper used across the app
-function addMessage(text) { try { return UI.addMessage(text); } catch (e) { console.warn('addMessage delegate failed', e); } }
-
-// Try to unregister any previously-registered service workers and optionally clear caches.
-// This helps if a deployed service worker or aggressive HTTP caching is serving an old bundle to mobile devices.
-// It's intentionally conservative: it only runs when the page loads and logs results to console.
+// Service worker cleanup (best-effort)
 if ('serviceWorker' in navigator) {
 	try {
 		navigator.serviceWorker.getRegistrations().then(regs => {
@@ -68,8 +63,8 @@ try {
 		getEditMode: () => editMode,
 		setEditMode: (v) => { editMode = v; },
 		findNodeById: (root, id) => findNodeById(root, id),
-		rebuildScene: () => rebuildScene(),
-		updateSceneNodeColor: (sceneNode, color) => updateSceneNodeColor(sceneNode, color),
+	rebuildScene: () => rebuildScene(),
+	updateSceneNodeColor: archRenderer.updateSceneNodeColor.bind(archRenderer),
 		archRenderer: archRenderer
 	});
 } catch (e) { console.warn('UI.init failed', e); }
@@ -93,14 +88,7 @@ const gridHelper = new THREE.GridHelper(100, 100, 0x00ffff, 0x0a0a2e);
 gridHelper.position.y = -18;
 scene.add(gridHelper);
 
-// Delegate low-level Three.js operations to archRenderer to keep SRP
-function createTextMesh(text, color) { return archRenderer.createTextMesh(text, color); }
-function createNode(name, position, color, scale = 1, id = null) { return archRenderer.createNode(name, position, color, scale, id); }
-function createLine(start, end, color, opacity = 0.5) { return archRenderer.createLineWithIds(start, end, color, null, null, opacity); }
-function createLineWithIds(start, end, color, startId = null, endId = null, opacity = 0.5) { return archRenderer.createLineWithIds(start, end, color, startId, endId, opacity); }
-function getSceneNodeById(id) { return archRenderer.getSceneNodeById(id); }
-function createChildNodes(children, parentNode, parentPos, parentColor) { return archRenderer.createChildNodes(children, parentNode, parentPos, parentColor, getColorForArchNode); }
-function updateSceneNodeColor(sceneNode, colorHex) { return archRenderer.updateSceneNodeColor(sceneNode, colorHex); }
+// Renderer owns Three.js operations
 
 // Resolve color for an architecture node object: prefer category -> legend color, then explicit color, then default
 function getColorForArchNode(node) {
@@ -152,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	if (saveBtn) {
 		saveBtn.addEventListener('click', () => {
 			if (!architecture.root || architecture.root.name === 'Empty Architecture' || !architecture.root.name) {
-				addMessage('No architecture to save. Please load an architecture first.');
+				UI.addMessage('No architecture to save. Please load an architecture first.');
 				return;
 			}
 			const xmlContent = ArchitectureXML.architectureToXML(architecture);
@@ -165,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			a.click();
 			document.body.removeChild(a);
 			URL.revokeObjectURL(url);
-			addMessage('Architecture saved successfully!');
+			UI.addMessage('Architecture saved successfully!');
 		});
 	}
 
@@ -199,9 +187,9 @@ document.addEventListener('DOMContentLoaded', () => {
 					try { UI.updateLegend(); } catch (e) { console.warn('UI.updateLegend failed', e); }
 					try { UI.updateTitle(); } catch (e) { console.warn('UI.updateTitle failed', e); }
 					rebuildScene();
-					addMessage('Architecture loaded successfully!');
+					UI.addMessage('Architecture loaded successfully!');
 				} catch (err) {
-					addMessage('Error loading XML file: ' + err.message);
+					UI.addMessage('Error loading XML file: ' + err.message);
 				}
 			};
 			reader.readAsText(file);
@@ -220,9 +208,9 @@ document.addEventListener('DOMContentLoaded', () => {
 				try { UI.updateLegend(); } catch (e) { console.warn('UI.updateLegend failed', e); }
 				try { UI.updateTitle(); } catch (e) { console.warn('UI.updateTitle failed', e); }
 				rebuildScene();
-				addMessage('Sample architecture loaded successfully!');
+				UI.addMessage('Sample architecture loaded successfully!');
 			} catch (err) {
-				addMessage('Error loading sample: ' + err.message);
+				UI.addMessage('Error loading sample: ' + err.message);
 			}
 		});
 	}
@@ -237,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-// particles are managed by archRenderer (keeps renderer concerns encapsulated)
+// Particles handled by archRenderer
 
 // Camera Controls
 const keys = { w: false, a: false, s: false, d: false, shift: false, space: false };
@@ -372,22 +360,12 @@ function isDesktop() {
 }
 
 // Create DOM indicator for selected node
-function ensureSelectedIndicator() {
-	try { selectedIndicator = UI.ensureSelectedIndicator(); } catch (e) { console.warn('ensureSelectedIndicator delegate failed', e); }
-}
-
-function ensureRenameInput() {
-	try { renameInput = UI.ensureRenameInput(); } catch (e) { console.warn('ensureRenameInput delegate failed', e); }
-}
-
-// Gizmo implementation moved into ArchRenderer (create/show/hide/update)
-
-function updateSelectedIndicatorPosition() {
-	try { return UI.updateSelectedIndicatorPosition(); } catch (e) { /* fallback: do nothing */ }
-}
-
-function showRenameInputAtSelected() {
-	try { return UI.showRenameInputAtSelected(); } catch (e) { /* ignore */ }
+// Access UI helpers directly from the UI module (no thin wrappers)
+function setPanelsVisible(visible) {
+	const rp = document.getElementById('rightPanel');
+	const lp = document.getElementById('leftPanel');
+	if (rp) rp.style.display = visible ? 'block' : 'none';
+	if (lp) lp.style.display = visible ? 'block' : 'none';
 }
 
 function persistSelectedNodePosition() {
@@ -520,9 +498,7 @@ function populateEditPanelForSelected() {
 // legend editability follows global editMode; no separate toggle
 let editLegendMode = false; // keep for backward compatibility but prefer editMode
 
-function renderLegendEditor() {
-	try { return UI.renderLegendEditor(); } catch (e) { console.warn('renderLegendEditor delegate failed', e); }
-}
+// legend editor delegated to UI.renderLegendEditor
 
 // open a temporary color input positioned near an element to ensure the native picker appears next to it
 function openColorPickerNear(anchorEl, initialColor, onPick) {
@@ -540,7 +516,7 @@ if (addLegendBtn) {
 		// read computed color in hex; swatch.style.backgroundColor may be rgb(), but most browsers accept it when set
 		const color = swatch.style.backgroundColor || '#00ffff';
 		if (!name) {
-			addMessage('Legend name required');
+			UI.addMessage('Legend name required');
 			return;
 		}
 		if (!architecture.legend) architecture.legend = [];
@@ -552,7 +528,7 @@ if (addLegendBtn) {
 		try { UI.updateLegend(); } catch (e) { console.warn('UI.updateLegend failed', e); }
 		try { UI.renderLegendEditor(); } catch (e) {}
 		try { UI.renderLegendAssignSelect(); } catch (e) {}
-		addMessage('Legend added');
+	UI.addMessage('Legend added');
 	});
 }
 
@@ -620,24 +596,16 @@ document.addEventListener('DOMContentLoaded', () => {
 // Legend editing is handled via the always-visible legend editor; no separate toggle in node panel.
 
 // Render select used to assign legend category to a node
-function renderLegendAssignSelect() {
-	try { return UI.renderLegendAssignSelect(); } catch (e) { console.warn('renderLegendAssignSelect delegate failed', e); }
-}
+// legend assign select delegated to UI.renderLegendAssignSelect
 
 // Update the compact left-side legend display (used in the left panel)
-function updateLeftLegendDisplay() {
-	try { return UI.updateLeftLegendDisplay(); } catch (e) { console.warn('updateLeftLegendDisplay delegate failed', e); }
-}
+// left legend display delegated to UI.updateLeftLegendDisplay
 
 // Synchronize legend data across UI: left panel, editor and select inputs
-function updateLegend() {
-	try { return UI.updateLegend(); } catch (e) { console.warn('updateLegend delegate failed', e); }
-}
+// updateLegend delegated to UI.updateLegend
 
 // Update page title and header based on architecture.uiInfo
-function updateTitle() {
-	try { return UI.updateTitle(); } catch (e) { console.warn('updateTitle delegate failed', e); }
-}
+// updateTitle delegated to UI.updateTitle
 
 // Note: change handler for #assignLegendSelect is attached inside renderLegendAssignSelect()
 
@@ -661,9 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Immediate update handlers for edit panel fields: update model and scene on change
-function attachImmediateEditHandlers() {
-	try { return UI.attachImmediateEditHandlers(); } catch (e) { console.warn('attachImmediateEditHandlers delegate failed', e); }
-}
+// attachImmediateEditHandlers delegated to UI.attachImmediateEditHandlers
 
 // attach once
 try { UI.attachImmediateEditHandlers(); } catch (e) {}
@@ -671,7 +637,7 @@ try { UI.attachImmediateEditHandlers(); } catch (e) {}
 // Add child to selected node (used from edit panel only)
 document.getElementById('addChildBtn').addEventListener('click', () => {
 	if (!editMode) {
-		addMessage('Enter Edit mode to add nodes.');
+	UI.addMessage('Enter Edit mode to add nodes.');
 		return;
 	}
 
@@ -680,7 +646,7 @@ document.getElementById('addChildBtn').addEventListener('click', () => {
 		architecture.root = { id: (Math.random().toString(36).slice(2, 9)), name: 'ROOT', pos: [0, 0, 0], color: '#00ffff', scale: 1, children: [] };
 		assignIdsRecursively(architecture.root);
 		rebuildScene();
-		addMessage('Root node created');
+	UI.addMessage('Root node created');
 		return;
 	}
 
@@ -703,7 +669,7 @@ document.getElementById('addChildBtn').addEventListener('click', () => {
 		}
 
 	rebuildScene();
-	addMessage('Child node added');
+	UI.addMessage('Child node added');
 });
 
 // Delete selected node
@@ -711,27 +677,59 @@ document.getElementById('deleteNodeBtn').addEventListener('click', () => {
 	if (!selectedNode) return;
 	const id = selectedNode.userData.id;
 	if (architecture.root.id === id) {
-		addMessage('Cannot delete root node');
+		UI.addMessage('Cannot delete root node');
 		return;
 	}
 	if (!deleteNodeById(architecture.root, id)) {
-		addMessage('Failed to delete node (mapping not found)');
+	UI.addMessage('Failed to delete node (mapping not found)');
 		return;
 	}
 	selectedNode = null;
 	rebuildScene();
-	addMessage('Node deleted');
+	UI.addMessage('Node deleted');
 });
 
 // Toggle edit mode (desktop only)
 // Wire UI handlers safely (guarded to avoid double bindings)
-function wireUiHandlers() {
-	try { return UI.wireUiHandlers(); } catch (e) { console.warn('wireUiHandlers delegate failed', e); }
-}
+// wireUiHandlers delegated to UI.wireUiHandlers
 
 // Call wiring immediately and also on DOMContentLoaded as a fallback
 try { UI.wireUiHandlers(); } catch (e) { /* ignore */ }
 document.addEventListener('DOMContentLoaded', () => { try { UI.wireUiHandlers(); } catch (e) {} });
+
+// Initialize UI toggle visibility on load
+document.addEventListener('DOMContentLoaded', () => {
+	try {
+		const uiT = document.getElementById('uiToggle');
+		if (uiT) uiT.classList.toggle('visible', !uiVisible);
+		const rp = document.getElementById('rightPanel');
+		const lp = document.getElementById('leftPanel');
+		if (rp) rp.style.display = uiVisible ? 'block' : 'none';
+		if (lp) lp.style.display = uiVisible ? 'block' : 'none';
+	} catch (e) { /* ignore */ }
+});
+
+// Keyboard shortcuts: U - toggle UI panels, Q - toggle cursor visibility
+document.addEventListener('keydown', (e) => {
+	try {
+		const key = (e.key || '').toLowerCase();
+		if (key === 'u') {
+			uiVisible = !uiVisible;
+			const rp = document.getElementById('rightPanel');
+			const lp = document.getElementById('leftPanel');
+			if (rp) rp.style.display = uiVisible ? 'block' : 'none';
+			if (lp) lp.style.display = uiVisible ? 'block' : 'none';
+			const uiT = document.getElementById('uiToggle');
+			if (uiT) uiT.classList.toggle('visible', !uiVisible);
+			try { UI.addMessage(`UI ${uiVisible ? 'visible' : 'hidden'}`); } catch (e) {}
+		}
+		if (key === 'q') {
+			cursorVisible = !cursorVisible;
+			document.body.style.cursor = cursorVisible ? 'default' : 'none';
+			try { UI.addMessage(`Cursor ${cursorVisible ? 'visible' : 'hidden'}`); } catch (e) {}
+		}
+	} catch (err) { /* ignore */ }
+});
 
 // Selection via click
 document.addEventListener('click', (e) => {
@@ -752,18 +750,18 @@ document.addEventListener('click', (e) => {
 			obj = obj.parent;
 		}
 		const resolved = obj || intersects[0].object.parent;
-		if (resolved) {
-			// set canonical selected id and resolve transient scene node
-			selectedId = resolved.userData && resolved.userData.id ? resolved.userData.id : null;
-			selectedNode = archRenderer.getSceneNodeById(selectedId);
-			if (selectedNode) {
-				ensureSelectedIndicator();
-				selectedIndicator.style.display = 'block';
-				updateSelectedIndicatorPosition();
-				populateEditPanelForSelected();
-				try { archRenderer.showGizmoAt(selectedNode); } catch (e) {}
+			if (resolved) {
+				// set canonical selected id and resolve transient scene node
+				selectedId = resolved.userData && resolved.userData.id ? resolved.userData.id : null;
+				selectedNode = archRenderer.getSceneNodeById(selectedId);
+				if (selectedNode) {
+					try { selectedIndicator = UI.ensureSelectedIndicator(); } catch (e) { console.warn(e); }
+					if (selectedIndicator) selectedIndicator.style.display = 'block';
+					try { UI.updateSelectedIndicatorPosition(); } catch (e) {}
+					populateEditPanelForSelected();
+					try { archRenderer.showGizmoAt(selectedNode); } catch (e) {}
+				}
 			}
-		}
 	} else {
 		selectedNode = null;
 		selectedId = null;
@@ -806,7 +804,7 @@ document.addEventListener('mousemove', (e) => {
 		raycaster.setFromCamera(mouse, camera);
 		const closest = archRenderer.gizmoPointerMove(raycaster, selectedNode);
 		if (closest) {
-			updateSelectedIndicatorPosition();
+				try { UI.updateSelectedIndicatorPosition(); } catch (e) {}
 			// apply immediately to architecture model
 			const archNode = findNodeById(architecture.root, selectedNode.userData.id);
 			if (archNode) archNode.pos = [selectedNode.position.x, selectedNode.position.y, selectedNode.position.z];
@@ -824,7 +822,7 @@ document.addEventListener('mouseup', (e) => {
 // Double click to rename
 document.addEventListener('dblclick', (e) => {
 	if (!editMode || !selectedNode) return;
-	showRenameInputAtSelected();
+	try { UI.showRenameInputAtSelected(); } catch (e) {}
 });
 // Direct node dragging disabled: use gizmo arrows to move nodes
 
@@ -1116,10 +1114,10 @@ function animate() {
 
 	// keep UI overlays and gizmo in sync with selected node when camera moves
 	if (selectedNode) {
-		updateSelectedIndicatorPosition();
+		try { UI.updateSelectedIndicatorPosition(); } catch (e) {}
 		try { archRenderer.updateGizmoPosition(selectedNode); } catch (e) {}
 		if (renameInput && renameInput.style.display !== 'none') {
-			showRenameInputAtSelected();
+			try { UI.showRenameInputAtSelected(); } catch (e) {}
 		}
 	}
 
