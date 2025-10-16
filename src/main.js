@@ -278,6 +278,21 @@ document.getElementById('sampleBtn').addEventListener('click', () => {
 	}
 });
 
+// Mobile menu bindings
+const mobileSaveBtn = document.getElementById('mobileSaveBtn');
+const mobileLoadBtn = document.getElementById('mobileLoadBtn');
+const mobileSampleBtn = document.getElementById('mobileSampleBtn');
+
+if (mobileSaveBtn) {
+	mobileSaveBtn.addEventListener('click', () => document.getElementById('saveBtn').click());
+}
+if (mobileLoadBtn) {
+	mobileLoadBtn.addEventListener('click', () => document.getElementById('xmlFileInput').click());
+}
+if (mobileSampleBtn) {
+	mobileSampleBtn.addEventListener('click', () => document.getElementById('sampleBtn').click());
+}
+
 document.getElementById('smoothnessSlider').addEventListener('change', (e) => {
 	const value = parseFloat(e.target.value);
 	const invertedValue = 0.55 - value;
@@ -498,6 +513,20 @@ scene.add(particles);
 // Camera Controls
 const keys = { w: false, a: false, s: false, d: false, shift: false, space: false };
 
+// Mobile control state
+const mobile = {
+	leftTouchId: null,
+	rightTouchId: null,
+	leftStart: null,
+	rightStart: null,
+	leftPos: { x: 0, y: 0 },
+	rightPos: { x: 0, y: 0 },
+	maxRadius: 44
+};
+// mobile action buttons state
+mobile.upPressed = false;
+mobile.downPressed = false;
+
 let currentOrbitAngle = 0;
 let targetOrbitAngle = 0;
 let currentOrbitRadius = 50;
@@ -567,6 +596,157 @@ document.addEventListener('mouseup', () => {
 	isDragging = false;
 	isMiddleDragging = false;
 });
+
+// Touch handlers for mobile controls
+const leftStick = document.getElementById('leftStick');
+const rightStick = document.getElementById('rightStick');
+const leftKnob = leftStick && leftStick.querySelector('.stick-knob');
+const rightKnob = rightStick && rightStick.querySelector('.stick-knob');
+
+function setKnob(knob, dx, dy) {
+	if (!knob) return;
+	knob.style.transform = `translate(${dx}px, ${dy}px)`;
+}
+
+function resetKnob(knob) {
+	if (!knob) return;
+	knob.style.transition = 'transform 150ms ease-out';
+	knob.style.transform = 'translate(0, 0)';
+	setTimeout(() => knob.style.transition = '', 160);
+}
+
+function handleTouchStart(e) {
+	resetAutoRotate();
+	for (const t of Array.from(e.changedTouches)) {
+		const target = document.elementFromPoint(t.clientX, t.clientY);
+		// left stick area
+		if (leftStick && (target === leftStick || leftStick.contains(target))) {
+			mobile.leftTouchId = t.identifier;
+			mobile.leftStart = { x: t.clientX, y: t.clientY };
+			mobile.leftPos = { x: 0, y: 0 };
+		}
+		// right stick area
+		else if (rightStick && (target === rightStick || rightStick.contains(target))) {
+			mobile.rightTouchId = t.identifier;
+			mobile.rightStart = { x: t.clientX, y: t.clientY };
+			mobile.rightPos = { x: 0, y: 0 };
+		}
+	}
+}
+
+function handleTouchMove(e) {
+	for (const t of Array.from(e.changedTouches)) {
+		if (t.identifier === mobile.leftTouchId) {
+			const dx = t.clientX - mobile.leftStart.x;
+			const dy = t.clientY - mobile.leftStart.y;
+			const len = Math.hypot(dx, dy) || 1;
+			const nx = (dx / len) * Math.min(len, mobile.maxRadius);
+			const ny = (dy / len) * Math.min(len, mobile.maxRadius);
+			mobile.leftPos = { x: nx, y: ny };
+			setKnob(leftKnob, nx, ny);
+		} else if (t.identifier === mobile.rightTouchId) {
+			const dx = t.clientX - mobile.rightStart.x;
+			const dy = t.clientY - mobile.rightStart.y;
+			// map right stick to orbit/height
+			targetOrbitAngle -= dx * 0.008;
+			targetOrbitHeight += dy * 0.12;
+			targetOrbitHeight = Math.max(-20, Math.min(35, targetOrbitHeight));
+			mobile.rightStart = { x: t.clientX, y: t.clientY };
+			setKnob(rightKnob, dx * 0.6, dy * 0.6);
+		}
+	}
+}
+
+function handleTouchEnd(e) {
+	for (const t of Array.from(e.changedTouches)) {
+		if (t.identifier === mobile.leftTouchId) {
+			mobile.leftTouchId = null;
+			mobile.leftStart = null;
+			mobile.leftPos = { x: 0, y: 0 };
+			resetKnob(leftKnob);
+		}
+		if (t.identifier === mobile.rightTouchId) {
+			mobile.rightTouchId = null;
+			mobile.rightStart = null;
+			resetKnob(rightKnob);
+		}
+	}
+}
+
+// Pinch zoom support
+let pinchStartDist = null;
+function getDist(t1, t2) {
+	const dx = t1.clientX - t2.clientX;
+	const dy = t1.clientY - t2.clientY;
+	return Math.hypot(dx, dy);
+}
+
+function handleTouchMovePinch(e) {
+	if (e.touches.length === 2) {
+		const d = getDist(e.touches[0], e.touches[1]);
+		if (pinchStartDist == null) pinchStartDist = d;
+		const delta = d - pinchStartDist;
+		targetOrbitRadius -= delta * 0.03;
+		targetOrbitRadius = Math.max(15, Math.min(100, targetOrbitRadius));
+		pinchStartDist = d;
+	}
+}
+
+function handleTouchEndPinch(e) {
+	if (e.touches.length < 2) pinchStartDist = null;
+}
+
+leftStick && leftStick.addEventListener('touchstart', handleTouchStart, { passive: true });
+leftStick && leftStick.addEventListener('touchmove', handleTouchMove, { passive: false });
+leftStick && leftStick.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+rightStick && rightStick.addEventListener('touchstart', handleTouchStart, { passive: true });
+rightStick && rightStick.addEventListener('touchmove', handleTouchMove, { passive: false });
+rightStick && rightStick.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+document.addEventListener('touchstart', (e) => {
+	// global handling to detect pinch and general touches
+	if (e.touches.length === 2) {
+		pinchStartDist = getDist(e.touches[0], e.touches[1]);
+	}
+	resetAutoRotate();
+}, { passive: true });
+
+document.addEventListener('touchmove', (e) => {
+	if (e.touches.length === 2) {
+		handleTouchMovePinch(e);
+	}
+	// prevent page scroll when touching canvas area
+	if (e.touches.length >= 1) e.preventDefault();
+}, { passive: false });
+
+document.addEventListener('touchend', (e) => {
+	handleTouchEnd(e);
+	handleTouchEndPinch(e);
+}, { passive: true });
+
+// Wire up action buttons (up/down)
+const btnUp = document.getElementById('btnUp');
+const btnDown = document.getElementById('btnDown');
+function setButtonActive(el, active) {
+	if (!el) return;
+	el.classList.toggle('active', active);
+}
+
+if (btnUp) {
+	btnUp.addEventListener('touchstart', (e) => { e.preventDefault(); mobile.upPressed = true; setButtonActive(btnUp, true); }, { passive: false });
+	btnUp.addEventListener('touchend', (e) => { e.preventDefault(); mobile.upPressed = false; setButtonActive(btnUp, false); }, { passive: true });
+	btnUp.addEventListener('mousedown', () => { mobile.upPressed = true; setButtonActive(btnUp, true); });
+	btnUp.addEventListener('mouseup', () => { mobile.upPressed = false; setButtonActive(btnUp, false); });
+}
+if (btnDown) {
+	btnDown.addEventListener('touchstart', (e) => { e.preventDefault(); mobile.downPressed = true; setButtonActive(btnDown, true); }, { passive: false });
+	btnDown.addEventListener('touchend', (e) => { e.preventDefault(); mobile.downPressed = false; setButtonActive(btnDown, false); }, { passive: true });
+	btnDown.addEventListener('mousedown', () => { mobile.downPressed = true; setButtonActive(btnDown, true); });
+	btnDown.addEventListener('mouseup', () => { mobile.downPressed = false; setButtonActive(btnDown, false); });
+}
+
+// Movement update from left virtual stick processed inside animate loop
 
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -646,6 +826,21 @@ function animate() {
 
 	const moveSpeed = 0.3;
 
+	// apply mobile left stick movement
+	if (mobile.leftPos) {
+		// normalized values - y is screen down so invert for forward
+		const nx = mobile.leftPos.x / mobile.maxRadius; // strafe
+		const ny = -mobile.leftPos.y / mobile.maxRadius; // forward/back
+		if (Math.abs(nx) > 0.12) {
+			targetX += right.x * nx * moveSpeed * 0.8;
+			targetZ += right.z * nx * moveSpeed * 0.8;
+		}
+		if (Math.abs(ny) > 0.12) {
+			targetX += forward.x * ny * moveSpeed * 0.8;
+			targetZ += forward.z * ny * moveSpeed * 0.8;
+		}
+	}
+
 	if (keys.w) {
 		targetX += forward.x * moveSpeed;
 		targetZ += forward.z * moveSpeed;
@@ -667,6 +862,14 @@ function animate() {
 	}
 	if (keys.shift) {
 		targetY -= moveSpeed;
+	}
+
+	// mobile up/down buttons
+	if (mobile.upPressed) {
+		targetY += moveSpeed * 0.9;
+	}
+	if (mobile.downPressed) {
+		targetY -= moveSpeed * 0.9;
 	}
 
 	camera.position.x = currentX + Math.sin(currentOrbitAngle) * currentOrbitRadius;
