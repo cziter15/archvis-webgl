@@ -1,6 +1,7 @@
 // UI module: DOM-only helpers and editors
 // Initialize with dependencies from main.js via init(deps)
 import { findNodeById } from './archmodel.js';
+import { ArchitectureXML } from './serializer.js';
 let D = {
   getArchitecture: null,
   setArchitecture: null,
@@ -302,7 +303,25 @@ export function renderLegendAssignSelect() {
       const sceneNode = D.getSelectedNode ? D.getSelectedNode() : (D.archRenderer ? D.archRenderer.getSceneNodeById(id) : null);
       const selectedLegendId = sel.value === '' ? '' : sel.value;
       const arch = D.getArchitecture ? D.getArchitecture() : null;
-      const archNode = D.findNodeById && arch ? D.findNodeById(arch.root, id) : null;
+      let archNode = D.findNodeById && arch ? D.findNodeById(arch.root, id) : null;
+      if (!archNode) {
+        // fallback: try to match by node name (best-effort)
+        const sceneNodeName = sceneNode && sceneNode.userData ? sceneNode.userData.name : null;
+        if (sceneNodeName) {
+          function findByName(node, name) {
+            if (!node) return null;
+            if (node.name === name) return node;
+            if (node.children) {
+              for (const c of node.children) {
+                const f = findByName(c, name);
+                if (f) return f;
+              }
+            }
+            return null;
+          }
+          archNode = findByName(arch.root, sceneNodeName);
+        }
+      }
       if (!archNode) { console.warn('assignLegendSelect: arch node not found', id); return; }
       if (!selectedLegendId) delete archNode.category; else archNode.category = selectedLegendId;
       // refresh scene and UI so change is visible immediately
@@ -412,6 +431,17 @@ export function populateEditPanelForSelected() {
     let current = '';
     if (archNodeForCategory && archNodeForCategory.category) {
       current = archNodeForCategory.category;
+    }
+    // if there's no category but an explicit color on model, try to map it to a legend entry
+    if ((!current || current === '') && archNodeForCategory && archNodeForCategory.color) {
+      const colorVal = (archNodeForCategory.color || '').toLowerCase();
+      const found = (arch.legend || []).find(e => (e.color || '').toLowerCase() === colorVal);
+      if (found) {
+        try { archNodeForCategory.category = found.id; delete archNodeForCategory.color; } catch (e) {}
+        current = found.id;
+        try { renderLegendAssignSelect(); } catch (e) {}
+        try { D.rebuildScene && D.rebuildScene(); } catch (e) {}
+      }
     }
     // If current is numeric index (legacy), try to map to legend id
     if (current !== '') {
@@ -526,7 +556,7 @@ export function wireUiHandlers() {
       const nodeHeader = document.getElementById('nodeEditorHeader'); if (nodeHeader) nodeHeader.style.display = '';
       const editPanel = document.getElementById('editPanel'); if (editPanel) { editPanel.style.display = ''; editPanel.setAttribute('aria-hidden','false'); }
       ensureSelectedIndicator(); ensureRenameInput();
-      addMessage('Edit mode enabled: use gizmo arrows to move nodes, double-click to rename.');
+      // message handled by setEditMode
       const legendEditor = document.getElementById('legendEditor'); if (legendEditor) legendEditor.style.display = '';
       // hide primary actions while editing
       ['saveBtn','loadBtn','sampleBtn'].forEach(id => {
@@ -542,8 +572,8 @@ export function wireUiHandlers() {
       const editPanel = document.getElementById('editPanel'); if (editPanel) { editPanel.style.display = 'none'; editPanel.setAttribute('aria-hidden','true'); }
       const selInd = window.__selectedIndicatorElement; if (selInd) selInd.style.display = 'none';
       const renameIn = window.__renameInputEl; if (renameIn) renameIn.style.display = 'none';
-      try { D.archRenderer && D.archRenderer.hideGizmo(); } catch (e) {}
-      addMessage('Edit mode disabled. Auto-rotate will resume after inactivity.');
+  try { D.archRenderer && D.archRenderer.hideGizmo(); } catch (e) {}
+  // message handled by setEditMode
       const legendEditor = document.getElementById('legendEditor'); if (legendEditor) legendEditor.style.display = 'none';
       // restore primary actions visibility
       ['saveBtn','loadBtn','sampleBtn'].forEach(id => {
@@ -560,6 +590,67 @@ export function wireUiHandlers() {
 
   // wire legend add controls once
   try { _wireLegendAddControls(); } catch (e) {}
+
+  // wire save/load/sample buttons and file input
+  try {
+    const saveBtn = document.getElementById('saveBtn');
+    const loadBtn = document.getElementById('loadBtn');
+    const sampleBtn = document.getElementById('sampleBtn');
+    const fileInput = document.getElementById('xmlFileInput');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', (e) => {
+        try {
+          const arch = D.getArchitecture ? D.getArchitecture() : null;
+          if (!arch || !arch.root || !arch.root.name || arch.root.name === 'Empty Architecture') { addMessage('No architecture to save. Please load an architecture first.'); return; }
+          const xml = ArchitectureXML.architectureToXML(arch);
+          const blob = new Blob([xml], { type: 'application/xml' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'architecture.xml';
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => { try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch (e) {} }, 1000);
+        } catch (err) { console.warn('saveBtn error', err); addMessage('Save failed'); }
+      });
+    }
+    if (loadBtn && fileInput) {
+      loadBtn.addEventListener('click', (e) => { fileInput.click(); });
+      fileInput.addEventListener('change', (ev) => {
+        const f = ev.target.files && ev.target.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = (r) => {
+          try {
+            const xml = r.target.result;
+            const loaded = ArchitectureXML.xmlToArchitecture(xml);
+            try { D.setArchitecture && D.setArchitecture(loaded); } catch (e) {}
+            try { D.rebuildScene && D.rebuildScene(); } catch (e) {}
+            try { updateLeftLegendDisplay(); } catch (e) {}
+            try { updateTitle(); } catch (e) {}
+            addMessage('Architecture loaded');
+          } catch (err) { console.warn('load parse failed', err); addMessage('Load failed: invalid XML'); }
+        };
+        reader.readAsText(f);
+      });
+    }
+    if (sampleBtn) {
+      sampleBtn.addEventListener('click', async (e) => {
+        try {
+          // try to fetch sample file from examples folder
+          const res = await fetch('/examples/microservices.xml');
+          if (!res.ok) { addMessage('Failed to load sample'); return; }
+          const xml = await res.text();
+          const loaded = ArchitectureXML.xmlToArchitecture(xml);
+          try { D.setArchitecture && D.setArchitecture(loaded); } catch (e) {}
+          try { D.rebuildScene && D.rebuildScene(); } catch (e) {}
+          try { updateLeftLegendDisplay(); } catch (e) {}
+          try { updateTitle(); } catch (e) {}
+          addMessage('Sample loaded');
+        } catch (err) { console.warn('sampleBtn failed', err); addMessage('Failed to load sample'); }
+      });
+    }
+  } catch (err) { console.warn('save/load wiring failed', err); }
 }
 
 // include get/set edit mode in the default export for external callers

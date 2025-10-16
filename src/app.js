@@ -57,19 +57,33 @@ export class MainApp {
       this.selectedId = id;
       this.selectedNode = node;
   try { if (this.renderer) this.renderer.selectedId = id; } catch(e) {}
-  // defensive: ensure edit panel is visible and populated
-  try { UI.setEditMode && UI.setEditMode(true); } catch(e) {}
-  try { const hdr = document.getElementById('nodeEditorHeader'); if (hdr) hdr.style.display = ''; } catch(e) {}
-  try { const panel = document.getElementById('editPanel'); if (panel) { panel.style.display = ''; panel.setAttribute('aria-hidden','false'); } } catch(e) {}
-  try { UI.populateEditPanelForSelected(); } catch(e) {}
-  try { UI.updateSelectedIndicatorPosition(); } catch(e) {}
+      // only show property UI when actual edit mode is active
+      try {
+        const em = UI && UI.getEditMode ? UI.getEditMode() : false;
+        if (em) {
+          try { const hdr = document.getElementById('nodeEditorHeader'); if (hdr) hdr.style.display = ''; } catch(e) {}
+          try { const panel = document.getElementById('editPanel'); if (panel) { panel.style.display = ''; panel.setAttribute('aria-hidden','false'); } } catch(e) {}
+          try { UI.populateEditPanelForSelected(); } catch(e) {}
+          try { UI.updateSelectedIndicatorPosition(); } catch(e) {}
+        } else {
+          // ensure edit panel stays hidden when not in edit mode
+          try { const panel = document.getElementById('editPanel'); if (panel) { panel.style.display = 'none'; panel.setAttribute('aria-hidden','true'); } } catch(e) {}
+        }
+      } catch (e) {}
     }, onDeselect: () => {
       this.selectedId = null;
       this.selectedNode = null;
       try { if (this.renderer) this.renderer.selectedId = null; } catch(e) {}
-      try { UI.populateEditPanelForSelected(); } catch(e) {}
-      try { UI.updateSelectedIndicatorPosition(); } catch(e) {}
-      try { UI.setEditMode && UI.setEditMode(false); } catch(e) {}
+      try {
+        const em = UI && UI.getEditMode ? UI.getEditMode() : false;
+        if (em) {
+          try { UI.populateEditPanelForSelected(); } catch(e) {}
+          try { UI.updateSelectedIndicatorPosition(); } catch(e) {}
+        } else {
+          try { const panel = document.getElementById('editPanel'); if (panel) { panel.style.display = 'none'; panel.setAttribute('aria-hidden','true'); } } catch(e) {}
+          try { const selInd = window.__selectedIndicatorElement; if (selInd) selInd.style.display = 'none'; } catch(e) {}
+        }
+      } catch (e) {}
     }});
 
     // start renderer loop
@@ -79,8 +93,11 @@ export class MainApp {
     try {
       const sampleXML = `<?xml version="1.0" encoding="UTF-8"?>\n<arch>\n  <node name="ROOT" pos="0,0,0" color="#00ffff" scale="1">\n\t<node name="API Gateway" pos="10,5,0" color="#ff00ff" scale="0.8">\n\t  <node name="Auth Service" pos="15,8,5" color="#ffff00" scale="0.6" />\n\t  <node name="Rate Limiter" pos="15,8,-5" color="#ffff00" scale="0.6" />\n\t</node>\n\t<node name="Database Layer" pos="-10,5,0" color="#00ff00" scale="0.8">\n\t  <node name="Primary DB" pos="-15,8,5" color="#ffff00" scale="0.6" />\n\t  <node name="Cache" pos="-15,8,-5" color="#ffff00" scale="0.6" />\n\t</node>\n\t<node name="Workers" pos="0,-5,10" color="#ff6600" scale="0.8">\n\t  <node name="Job Queue" pos="5,-8,15" color="#ffff00" scale="0.6" />\n\t  <node name="Worker Pool" pos="-5,-8,15" color="#ffff00" scale="0.6" />\n\t</node>\n  </node>\n  <legend>\n\t<entry name="Core Services" color="#00ffff" />\n\t<entry name="Modules" color="#ff00ff" />\n\t<entry name="Components" color="#ffff00" />\n\t<entry name="Data Layer" color="#00ff00" />\n  </legend>\n  <ui-info>\n\t<title>MICROSERVICES ARCHITECTURE</title>\n  </ui-info>\n</arch>`;
       const loaded = ArchitectureXML.xmlToArchitecture(sampleXML);
-      this.architecture = loaded;
-      this.rebuildScene();
+  this.architecture = loaded;
+  // ensure model nodes have ids so scene nodes and model match
+  try { ArchModel.assignIdsRecursively(this.architecture.root); } catch (e) {}
+  try { (this.architecture.legend || []).forEach(en => { if (!en.id) en.id = (Math.random().toString(36).slice(2,9)); }); } catch (e) {}
+  this.rebuildScene();
   try { UI.updateLeftLegendDisplay(); } catch(e) {}
   try { UI.updateTitle(); } catch(e) {}
   UI.addMessage('Sample loaded');
@@ -91,6 +108,10 @@ export class MainApp {
   }
 
   rebuildScene() {
+    // ensure model nodes have ids so scene nodes use stable ids (prevents mismatch between scene and model)
+    try { ArchModel.assignIdsRecursively(this.architecture.root); } catch (e) {}
+    try { (this.architecture.legend || []).forEach(en => { if (!en.id) en.id = (Math.random().toString(36).slice(2,9)); }); } catch (e) {}
+  try { ArchModel.mapColorsToLegend(this.architecture.root, this.architecture.legend); } catch (e) {}
     const prev = this.selectedId || (this.selectedNode && this.selectedNode.userData ? this.selectedNode.userData.id : null);
     const found = this.renderer.rebuildScene(this.architecture, prev);
     if (found) {
