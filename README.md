@@ -7,7 +7,7 @@
 > It loads and saves architectures as XML and provides a 3D view with of it.<br>
 > A sample architecture file is included for quick demos.
 
-<img alt="image" src="https://github.com/user-attachments/assets/30810f79-1093-4cf1-a379-dcf9584f0b2f" />
+<img alt="image" src="https://github.com/user-attachments/assets/d1dfc317-96ae-45f8-8f8b-e06b6e2dc9ff" />
 
 ## ▶️ Quick start
 
