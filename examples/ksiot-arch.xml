@@ -1,37 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <arch>
-  <node name="ksf" pos="0,10,0" color="#ff00ff" scale="2.2">
-  <node name="ksEventInterface" pos="-20,2,0" color="#00ffff" scale="1.5" />
-  <node name="ksApplication" pos="0,2,0" color="#00ffff" scale="1.5" />
-  <node name="ksAppRotator" pos="20,2,0" color="#00ffff" scale="1.5" />
-  <node name="misc" pos="-12,-6,0" color="#ff0080" scale="1.6">
-    <node name="ksCertFingerprint" pos="-17,-13,4" color="#8000ff" />
-    <node name="ksConfig" pos="-17,-13,-4" color="#8000ff" />
-    <node name="ksDomainQuery" pos="-12,-13,6" color="#8000ff" />
-    <node name="ksEventHandle" pos="-12,-13,-6" color="#8000ff" />
-    <node name="ksSimpleTimer" pos="-7,-13,4" color="#8000ff" />
-    <node name="ksWSServer" pos="-7,-13,-4" color="#8000ff" />
+  <node id="ksf" name="ksf" pos="0,10,0" category="legend-core" scale="2.2">
+  <node id="ks-event-interface" name="ksEventInterface" pos="-20,2,0" category="legend-interface" scale="1.5" />
+  <node id="ks-application" name="ksApplication" pos="0,2,0" category="legend-interface" scale="1.5" />
+  <node id="ks-app-rotator" name="ksAppRotator" pos="20,2,0" category="legend-interface" scale="1.5" />
+  <node id="misc" name="misc" pos="-12,-6,0" category="legend-system" scale="1.6">
+    <node id="ks-cert-fingerprint" name="ksCertFingerprint" pos="-17,-13,4" category="legend-sub" />
+    <node id="ks-config" name="ksConfig" pos="-17,-13,-4" category="legend-sub" />
+    <node id="ks-domain-query" name="ksDomainQuery" pos="-12,-13,6" category="legend-sub" />
+    <node id="ks-event-handle" name="ksEventHandle" pos="-12,-13,-6" category="legend-sub" />
+    <node id="ks-simple-timer" name="ksSimpleTimer" pos="-7,-13,4" category="legend-sub" />
+    <node id="ks-ws-server" name="ksWSServer" pos="-7,-13,-4" category="legend-sub" />
   </node>
-  <node name="ksRtti" pos="12,-1,0" color="#ff0080" scale="1.6" />
-  <node name="ksComponent" pos="12,-6,0" color="#ff0080" scale="1.4">
-    <node name="ksConfigProvider" pos="4,-13,8" color="#8000ff">
-      <node name="ksMqttConfigProvider" pos="4,-16,11" color="#9370db" />
+  <node id="ks-rtti" name="ksRtti" pos="12,-1,0" category="legend-system" scale="1.6" />
+  <node id="ks-component" name="ksComponent" pos="12,-6,0" category="legend-system" scale="1.4">
+    <node id="ks-config-provider" name="ksConfigProvider" pos="4,-13,8" category="legend-sub">
+      <node id="ks-mqtt-config-provider" name="ksMqttConfigProvider" pos="4,-16,11" category="legend-config" />
     </node>
-    <node name="ksDevStatMqttReporter" pos="8,-13,5" color="#8000ff" />
-    <node name="ksDevicePortal" pos="12,-13,8" color="#8000ff" />
-    <node name="ksLed" pos="16,-13,5" color="#8000ff" />
-    <node name="ksMqttConnector" pos="20,-13,8" color="#8000ff" />
-    <node name="ksResetButton" pos="8,-13,-5" color="#8000ff" />
-    <node name="ksWifiConfigurator" pos="12,-13,-8" color="#8000ff" />
-    <node name="ksWifiConnector" pos="16,-13,-5" color="#8000ff" />
+    <node id="ks-devstat-mqtt-reporter" name="ksDevStatMqttReporter" pos="8,-13,5" category="legend-sub" />
+    <node id="ks-device-portal" name="ksDevicePortal" pos="12,-13,8" category="legend-sub" />
+    <node id="ks-led" name="ksLed" pos="16,-13,5" category="legend-sub" />
+    <node id="ks-mqtt-connector" name="ksMqttConnector" pos="20,-13,8" category="legend-sub" />
+    <node id="ks-reset-button" name="ksResetButton" pos="8,-13,-5" category="legend-sub" />
+    <node id="ks-wifi-configurator" name="ksWifiConfigurator" pos="12,-13,-8" category="legend-sub" />
+    <node id="ks-wifi-connector" name="ksWifiConnector" pos="16,-13,-5" category="legend-sub" />
   </node>
   </node>
   <legend>
-    <entry name="Core System" color="#ff00ff" />
-    <entry name="Interface Layer" color="#00ffff" />
-    <entry name="System Components" color="#ff0080" />
-    <entry name="Sub-modules" color="#8000ff" />
-    <entry name="Configuration" color="#9370db" />
+    <entry id="legend-core" name="Core System" color="#ff00ff" />
+    <entry id="legend-interface" name="Interface Layer" color="#00ffff" />
+    <entry id="legend-system" name="System Components" color="#ff0080" />
+    <entry id="legend-sub" name="Sub-modules" color="#8000ff" />
+    <entry id="legend-config" name="Configuration" color="#9370db" />
   </legend>
   <ui-info>
 	<title>ksIotFrameworkLib arch</title>
