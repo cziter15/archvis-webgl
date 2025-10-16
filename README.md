@@ -1,5 +1,5 @@
 # 🖥️ ArchVis WebGL
-[![GitHub Pages](https://github.com/cziter15/archvis-webgl/actions/workflows/pages.yml/badge.svg)](https://cziter15.github.io/archvis-webgl/) [![Lines of Code](https://img.shields.io/endpoint?color=blue&url=https://ghloc.vercel.app/api/cziter15/archvis-webgl/badge?filter=.html$,.js$,.css$)](https://github.com/cziter15/archvis-webgl)
+[![GitHub Pages](https://github.com/cziter15/archvis-webgl/actions/workflows/pages.yml/badge.svg)](https://cziter15.github.io/archvis-webgl/) [![Lines of Code](https://img.shields.io/endpoint?color=bl[...]
 
 > **ArchVis WebGL** is a small interactive WebGL-based architecture visualization built with Three.js and Vite.<br>
 > Initialy vibe-coded with Claude 4.5 and GLM 4.5, then moved manually into Vite-based solution.
@@ -76,16 +76,53 @@ Below is the sample XML used by the app (also present in `src/main.js`):
 
 ## 📚 XML format notes
 
-- The root element is `<arch>`.
-- The main scene root is the first `<node>` child of `<arch>`. Each `<node>` must include:
-  - `name` - string
-  - `pos` - three comma-separated numbers (x,y,z)
-  - `color` - hex color string, e.g. `#ff00ff`
-  - optional `scale` - number
-- Nodes may nest arbitrarily via child `<node>` entries.
-- Optional `<legend>` and `<ui-info>` sections are supported.
+- Root element
+  - The document root MUST be `<arch>`.
+
+- Scene root
+  - The main scene root is the first `<node>` child of `<arch>`. (Conventionally it uses `id="root"`.)
+
+- Node elements
+  - Nodes are represented by `<node>` elements and may nest arbitrarily to represent hierarchy.
+  - Common node attributes:
+    - `id` (optional) - unique identifier (string). Helpful for referencing nodes.
+    - `name` (required) - display name (string).
+    - `pos` (required) - position as three comma-separated numbers: "x,y,z". Numbers can be integers or floats. Spaces around commas are allowed but not required.
+      - Example: `pos="10,5,0"` or `pos="10.0, 5.0, -2.5"`
+    - `category` (optional) - the id of a `<legend><entry>` that supplies the node color. Example: `category="legend-components"`
+    - `color` (optional) - hex color string that overrides category/legend color for this node. Accepts formats like `#RRGGBB` or `#RGB`.
+    - `scale` (optional) - numeric scale multiplier (default is 1).
+  - If both `category` and `color` are provided on a node, the node-level color takes precedence.
+
+- Legend
+  - The optional `<legend>` section contains `<entry>` elements that define named colors.
+  - Each `<entry>` commonly uses:
+    - `id` (required) - id used by node category attributes.
+    - `name` (optional) - human-readable legend name.
+    - `color` (required) - hex color string for the entry (e.g., `#ff00ff`).
+  - Example:
+    ```xml
+    <legend>
+      <entry id="legend-core" name="Core Services" color="#00ffff" />
+    </legend>
+    ```
+
+- UI info
+  - The optional `<ui-info>` section provides UI metadata.
+  - Example:
+    ```xml
+    <ui-info>
+      <title>MICROSERVICES ARCHITECTURE</title>
+    </ui-info>
+    ```
+  - Unknown fields are ignored by the app.
+
+- General notes
+  - XML must be well-formed and UTF-8 encoded.
+  - The loader is permissive about attribute ordering but strict about correct XML syntax.
+  - If loading fails, check the browser console for parsing errors and verify attribute formats (`pos` and `color` especially).
 
 ## 🐞 Troubleshooting
 
 - If loading fails, open the browser console to see parsing errors. The app shows brief messages in the UI as well.
-- ✅ Ensure your XML is UTF-8 encoded and well-formed.
+- Ensure your XML is UTF-8 encoded and well-formed.
