@@ -45,14 +45,11 @@
 				<button class="button" id="sampleBtn">📋 LOAD SAMPLE</button>
 				<button class="button" id="editBtn">✏️ EDIT</button>
 				<div class="smoothness-control">
-					<div class="smoothness-label">SMOOTHNESS:</div>
+					<div class="smoothness-label">CAMERA SMOOTHNESS:</div>
 					<div class="slider-container">
 						<span>MIN</span>
 						<input type="range" id="smoothnessSlider" min="0.05" max="0.5" step="0.05" value="0.15">
 						<span>MAX</span>
-					</div>
-					<div class="author-info">
-						© <a href="https://github.com/cziter15" target="_blank">K. STREHLAU</a>
 					</div>
 				</div>
 
@@ -68,10 +65,16 @@
 						<button class="button small" id="addLegendBtn">ADD</button>
 					</div>
 				</div>
-				<!-- Edit panel (desktop only) -->
+	
 				<div style="border-top:1px dashed rgba(0,255,255,0.12);margin-top:8px;padding-top:4px;">
 					<div id="nodeEditorHeader" style="font-size:12px;color:#00ccff;margin:4px 0 6px 0;">NODE EDITOR</div>
 				</div>
+
+				<div class="author-info">
+					© <a href="https://github.com/cziter15" target="_blank">K. STREHLAU</a>
+				</div>
+
+				<!-- Edit panel (desktop only) -->
 				<div class="edit-panel" id="editPanel" aria-hidden="true" style="display:none;">
 					<div id="editContent">
 						<div class="edit-row"><label>Name</label><input type="text" id="editName"></div>

@@ -1,165 +1,7 @@
-// Architecture XML utilities
-class ArchitectureXML {
-	static architectureToXML(architecture) {
-		let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-		xml += '<arch>\n';
-
-		// root node: include id and category if present; if category exists, skip explicit color
-		const rootAttrs = [];
-		rootAttrs.push(`name="${architecture.root.name}"`);
-		rootAttrs.push(`pos="${architecture.root.pos.join(',')}"`);
-		if (architecture.root.id) rootAttrs.push(`id="${architecture.root.id}"`);
-		if (architecture.root.category) {
-			rootAttrs.push(`category="${architecture.root.category}"`);
-		} else if (architecture.root.color) {
-			rootAttrs.push(`color="${architecture.root.color}"`);
-		}
-		if (architecture.root.scale !== undefined) rootAttrs.push(`scale="${architecture.root.scale}"`);
-		xml += `  <node ${rootAttrs.join(' ')}>\n`;
-
-		architecture.root.children.forEach(child => {
-			xml += this.nodeToXML(child, 2);
-		});
-
-		xml += '  </node>\n';
-
-		if (architecture.legend && architecture.legend.length > 0) {
-			xml += '  <legend>\n';
-			architecture.legend.forEach(entry => {
-				xml += `    <entry id="${entry.id || ''}" name="${entry.name}" color="${entry.color}" />\n`;
-			});
-			xml += '  </legend>\n';
-		}
-
-		if (architecture.uiInfo && architecture.uiInfo.title) {
-			xml += '  <ui-info>\n';
-			xml += `    <title>${architecture.uiInfo.title}</title>\n`;
-			xml += '  </ui-info>\n';
-		}
-
-		xml += '</arch>';
-		return xml;
-	}
-
-	static nodeToXML(node, indent) {
-		let xml = '';
-		const spaces = ' '.repeat(indent);
-		// include id and category when present; if category present, skip color attribute to avoid redundancy
-		const attrs = [];
-		attrs.push(`name="${node.name}"`);
-		attrs.push(`pos="${node.pos.join(',')}"`);
-		if (node.id) attrs.push(`id="${node.id}"`);
-		if (node.category) {
-			attrs.push(`category="${node.category}"`);
-		} else if (node.color) {
-			attrs.push(`color="${node.color}"`);
-		}
-		if (node.scale !== undefined) attrs.push(`scale="${node.scale}"`);
-		xml += `${spaces}<node ${attrs.join(' ')}`;
-
-		if (node.children && node.children.length > 0) {
-			xml += '>\n';
-			node.children.forEach(child => {
-				xml += this.nodeToXML(child, indent + 2);
-			});
-			xml += `${spaces}</node>\n`;
-		} else {
-			xml += ' />\n';
-		}
-
-		return xml;
-	}
-
-	static xmlToArchitecture(xmlString) {
-		const parser = new DOMParser();
-		const xmlDoc = parser.parseFromString(xmlString, "text/xml");
-
-		const rootElement = xmlDoc.querySelector('arch > node');
-		if (!rootElement) {
-			throw new Error('Root element not found in XML');
-		}
-
-		const root = {
-			id: rootElement.getAttribute('id') || (Math.random().toString(36).slice(2, 9)),
-			name: rootElement.getAttribute('name'),
-			pos: rootElement.getAttribute('pos').split(',').map(Number),
-			children: []
-		};
-		// category overrides explicit color
-		const rootCategory = rootElement.getAttribute('category');
-		if (rootCategory) {
-			root.category = rootCategory;
-		} else {
-			const rootColor = rootElement.getAttribute('color');
-			if (rootColor) root.color = rootColor;
-		}
-		const rootScale = rootElement.getAttribute('scale');
-		if (rootScale) root.scale = parseFloat(rootScale);
-
-		const childNodes = rootElement.querySelectorAll(':scope > node');
-		childNodes.forEach(childElement => {
-			const child = this.parseNode(childElement);
-			root.children.push(child);
-		});
-
-		const legend = [];
-		const legendElement = xmlDoc.querySelector('arch > legend');
-		if (legendElement) {
-			const entryElements = legendElement.querySelectorAll('entry');
-			entryElements.forEach(entryElement => {
-				const entry = {
-					id: entryElement.getAttribute('id') || (Math.random().toString(36).slice(2,9)),
-					name: entryElement.getAttribute('name'),
-					color: entryElement.getAttribute('color')
-				};
-				legend.push(entry);
-			});
-		}
-
-		const uiInfo = { title: '' };
-		const uiInfoElement = xmlDoc.querySelector('arch > ui-info');
-		if (uiInfoElement) {
-			const titleElement = uiInfoElement.querySelector('title');
-			if (titleElement) {
-				uiInfo.title = titleElement.textContent || '';
-			}
-		}
-
-		return { root, legend, uiInfo };
-	}
-
-	static parseNode(nodeElement) {
-		const node = {
-			// assign id if present else generate a temporary id
-			id: nodeElement.getAttribute('id') || (Math.random().toString(36).slice(2, 9)),
-			name: nodeElement.getAttribute('name'),
-			pos: nodeElement.getAttribute('pos').split(',').map(Number),
-			children: []
-		};
-
-		const scale = nodeElement.getAttribute('scale');
-		if (scale) {
-			node.scale = parseFloat(scale);
-		}
-
-		// parse category (legend id) — if present, set category; otherwise read color
-		const category = nodeElement.getAttribute('category');
-		if (category) {
-			node.category = category;
-		} else {
-			const color = nodeElement.getAttribute('color');
-			if (color) node.color = color;
-		}
-
-		const childElements = nodeElement.querySelectorAll(':scope > node');
-		childElements.forEach(childElement => {
-			const child = this.parseNode(childElement);
-			node.children.push(child);
-		});
-
-		return node;
-	}
-}
+import { ArchitectureXML } from './serializer.js';
+import { ArchModel, findNodeById, assignIdsRecursively, mapColorsToLegend, renameNodeById, deleteNodeById } from './archmodel.js';
+import { ArchRenderer } from './archrenderer.js';
+import UI from './ui.js';
 
 // Global state
 let architecture = {
@@ -170,6 +12,10 @@ let architecture = {
 
 let uiVisible = true;
 let cursorVisible = true;
+let selectedId = null;
+
+// Simple UI message helper used across the app
+function addMessage(text) { try { return UI.addMessage(text); } catch (e) { console.warn('addMessage delegate failed', e); } }
 
 // Try to unregister any previously-registered service workers and optionally clear caches.
 // This helps if a deployed service worker or aggressive HTTP caching is serving an old bundle to mobile devices.
@@ -199,270 +45,34 @@ if ('serviceWorker' in navigator) {
 		console.warn('Service worker cleanup failed', e);
 	}
 }
-
-if (!window.smoothFactors) {
-	window.smoothFactors = {
-		drag: 0.25,
-		zoom: 0.15,
-		general: 0.12
-	};
-}
-
-// UI Functions
-function addMessage(text) {
-	const messageDisplay = document.getElementById('messageDisplay');
-	const msg = document.createElement('div');
-	msg.className = 'message';
-	msg.textContent = text;
-	messageDisplay.appendChild(msg);
-	setTimeout(() => msg.remove(), 5000);
-}
-
-function updateLegend() {
-	const legendContainer = document.getElementById('legendContainer');
-	const legendItems = document.getElementById('legendItems');
-
-	if (architecture.legend && architecture.legend.length > 0) {
-		legendContainer.style.display = 'block';
-		legendItems.innerHTML = '';
-		architecture.legend.forEach(entry => {
-			const div = document.createElement('div');
-			div.className = 'legend-entry';
-			div.innerHTML = `
-						<div class="legend-color" style="background-color: ${entry.color};"></div>
-						<span style="color: white;">${entry.name}</span>
-					`;
-			legendItems.appendChild(div);
-		});
-	} else {
-		legendContainer.style.display = 'none';
-	}
-
-	// keep assign select in sync
-	renderLegendAssignSelect();
-	// also update the right-side legend editor (if present)
-	try { renderLegendEditor(); } catch (e) { /* ignore if not available yet */ }
-}
-
-// Update only the left-side legend display and assign select, without
-// re-rendering the right-side editor. Used to avoid stealing focus from
-// editor inputs while typing.
-function updateLeftLegendDisplay() {
-	const legendItems = document.getElementById('legendItems');
-	const legendContainer = document.getElementById('legendContainer');
-	if (architecture.legend && architecture.legend.length > 0) {
-		if (legendContainer) legendContainer.style.display = 'block';
-		if (legendItems) {
-			legendItems.innerHTML = '';
-			architecture.legend.forEach(entry => {
-				const div = document.createElement('div');
-				div.className = 'legend-entry';
-				div.innerHTML = `
-						<div class="legend-color" style="background-color: ${entry.color};"></div>
-						<span style="color: white;">${entry.name}</span>
-					`;
-				legendItems.appendChild(div);
-			});
-		}
-	} else {
-		if (legendContainer) legendContainer.style.display = 'none';
-	}
-	renderLegendAssignSelect();
-}
-
-function updateTitle() {
-	const title = document.getElementById('title');
-	title.textContent = architecture.uiInfo?.title || 'ARCHITECTURE VISUALIZATION';
-}
-
-// Event Listeners
-document.getElementById('saveBtn').addEventListener('click', () => {
-	if (architecture.root.name === 'Empty Architecture' || !architecture.root.name) {
-		addMessage('No architecture to save. Please load an architecture first.');
-		return;
-	}
-
-	const xmlContent = ArchitectureXML.architectureToXML(architecture);
-	const blob = new Blob([xmlContent], { type: 'application/xml' });
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = 'architecture.xml';
-	document.body.appendChild(a);
-	a.click();
-	document.body.removeChild(a);
-	URL.revokeObjectURL(url);
-	addMessage('Architecture saved successfully!');
-});
-
-document.getElementById('loadBtn').addEventListener('click', () => {
-	document.getElementById('xmlFileInput').click();
-});
-
-document.getElementById('xmlFileInput').addEventListener('change', (event) => {
-	const file = event.target.files[0];
-	if (!file) return;
-
-	const reader = new FileReader();
-	reader.onload = (e) => {
-		try {
-			const xmlContent = e.target.result;
-			if (!xmlContent || xmlContent.trim() === '') {
-				throw new Error('Empty file');
-			}
-
-			const loadedArchitecture = ArchitectureXML.xmlToArchitecture(xmlContent);
-
-			if (!loadedArchitecture || !loadedArchitecture.root) {
-				throw new Error('Invalid architecture structure');
-			}
-
-			architecture = {
-				root: loadedArchitecture.root || { name: 'Unknown Root', pos: [0, 0, 0], color: '#ff00ff', scale: 1, children: [] },
-				legend: loadedArchitecture.legend || [],
-				uiInfo: loadedArchitecture.uiInfo || { title: '' }
-			};
-
-			// Map legacy node colors to legend categories when possible
-			function mapColorsToLegend(node, legend) {
-				if (!node) return;
-				if (!node.category && node.color && legend && legend.length) {
-					const found = legend.find(e => e.color && e.color.toLowerCase() === node.color.toLowerCase());
-					if (found) {
-						node.category = found.id;
-						delete node.color;
-					}
-				}
-				if (node.children) node.children.forEach(c => mapColorsToLegend(c, legend));
-			}
-
-			mapColorsToLegend(architecture.root, architecture.legend);
-
-			// assign stable ids for editing
-			assignIdsRecursively(architecture.root);
-
-			updateLegend();
-			updateTitle();
-			rebuildScene();
-			addMessage('Architecture loaded successfully!');
-		} catch (error) {
-			addMessage('Error loading XML file: ' + error.message);
-		}
-	};
-
-	reader.readAsText(file);
-	event.target.value = '';
-});
-
-document.getElementById('sampleBtn').addEventListener('click', () => {
-	const sampleXML = `<?xml version="1.0" encoding="UTF-8"?>
-<arch>
-  <node name="ROOT" pos="0,0,0" color="#00ffff" scale="1">
-	<node name="API Gateway" pos="10,5,0" color="#ff00ff" scale="0.8">
-	  <node name="Auth Service" pos="15,8,5" color="#ffff00" scale="0.6" />
-	  <node name="Rate Limiter" pos="15,8,-5" color="#ffff00" scale="0.6" />
-	</node>
-	<node name="Database Layer" pos="-10,5,0" color="#00ff00" scale="0.8">
-	  <node name="Primary DB" pos="-15,8,5" color="#ffff00" scale="0.6" />
-	  <node name="Cache" pos="-15,8,-5" color="#ffff00" scale="0.6" />
-	</node>
-	<node name="Workers" pos="0,-5,10" color="#ff6600" scale="0.8">
-	  <node name="Job Queue" pos="5,-8,15" color="#ffff00" scale="0.6" />
-	  <node name="Worker Pool" pos="-5,-8,15" color="#ffff00" scale="0.6" />
-	</node>
-  </node>
-  <legend>
-	<entry name="Core Services" color="#00ffff" />
-	<entry name="Modules" color="#ff00ff" />
-	<entry name="Components" color="#ffff00" />
-	<entry name="Data Layer" color="#00ff00" />
-  </legend>
-  <ui-info>
-	<title>MICROSERVICES ARCHITECTURE</title>
-  </ui-info>
-</arch>`;
-
-	try {
-		const loadedArchitecture = ArchitectureXML.xmlToArchitecture(sampleXML);
-		architecture = loadedArchitecture;
-
-		// map legacy node colors to legend ids when possible
-		function mapColorsToLegend(node, legend) {
-			if (!node) return;
-			if (!node.category && node.color && legend && legend.length) {
-				const found = legend.find(e => e.color && e.color.toLowerCase() === node.color.toLowerCase());
-				if (found) {
-					node.category = found.id;
-					delete node.color;
-				}
-			}
-			if (node.children) node.children.forEach(c => mapColorsToLegend(c, legend));
-		}
-		mapColorsToLegend(architecture.root, architecture.legend);
-
-		assignIdsRecursively(architecture.root);
-		updateLegend();
-		updateTitle();
-		rebuildScene();
-		addMessage('Sample architecture loaded successfully!');
-	} catch (error) {
-		addMessage('Error loading sample: ' + error.message);
-	}
-});
-
-// Mobile menu bindings
-const mobileSaveBtn = document.getElementById('mobileSaveBtn');
-const mobileLoadBtn = document.getElementById('mobileLoadBtn');
-const mobileSampleBtn = document.getElementById('mobileSampleBtn');
-
-if (mobileSaveBtn) {
-	mobileSaveBtn.addEventListener('click', () => document.getElementById('saveBtn').click());
-}
-if (mobileLoadBtn) {
-	mobileLoadBtn.addEventListener('click', () => document.getElementById('xmlFileInput').click());
-}
-if (mobileSampleBtn) {
-	mobileSampleBtn.addEventListener('click', () => document.getElementById('sampleBtn').click());
-}
-
-document.getElementById('smoothnessSlider').addEventListener('change', (e) => {
-	const value = parseFloat(e.target.value);
-	const invertedValue = 0.55 - value;
-	window.smoothFactors = {
-		drag: invertedValue,
-		zoom: invertedValue * 0.8,
-		general: invertedValue * 1.2
-	};
-	const percentage = Math.round(((0.55 - invertedValue) / 0.45) * 100);
-	addMessage(`Smoothness set to ${percentage}%`);
-});
-
-document.addEventListener('keydown', (e) => {
-	if (e.key.toLowerCase() === 'u') {
-		uiVisible = !uiVisible;
-		document.getElementById('rightPanel').style.display = uiVisible ? 'block' : 'none';
-		document.getElementById('leftPanel').style.display = uiVisible ? 'block' : 'none';
-		document.getElementById('uiToggle').classList.toggle('visible', !uiVisible);
-	}
-	if (e.key.toLowerCase() === 'q') {
-		cursorVisible = !cursorVisible;
-		document.body.style.cursor = cursorVisible ? 'default' : 'none';
-		addMessage(`Cursor ${cursorVisible ? 'visible' : 'hidden'}`);
-	}
-});
-
-// Three.js Scene
-const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x000510, 0.008);
-
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 15, 50);
-camera.lookAt(0, 0, 0);
-
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
+// Renderer instance (centralized Three.js ops)
+const archRenderer = new ArchRenderer({ mountElement: document.getElementById('canvas') });
+// aliases used across this file for backward compatibility
+const scene = archRenderer.scene;
+const camera = archRenderer.camera;
+const renderer = archRenderer.renderer;
+const nodes = archRenderer.nodes;
+const lines = archRenderer.lines;
 renderer.setClearColor(0x000510);
 document.getElementById('canvas').appendChild(renderer.domElement);
+
+// Initialize UI module and pass in necessary dependencies
+try {
+	UI.init({
+		getArchitecture: () => architecture,
+		setArchitecture: (arch) => { architecture = arch; },
+		getSelectedId: () => selectedId,
+		getSelectedNode: () => selectedNode || (selectedId ? archRenderer.getSceneNodeById(selectedId) : null),
+		setSelectedId: (id) => { selectedId = id; },
+		setSelectedNode: (node) => { selectedNode = node; },
+		getEditMode: () => editMode,
+		setEditMode: (v) => { editMode = v; },
+		findNodeById: (root, id) => findNodeById(root, id),
+		rebuildScene: () => rebuildScene(),
+		updateSceneNodeColor: (sceneNode, color) => updateSceneNodeColor(sceneNode, color),
+		archRenderer: archRenderer
+	});
+} catch (e) { console.warn('UI.init failed', e); }
 
 const ambientLight = new THREE.AmbientLight(0x1a1a3e, 0.8);
 scene.add(ambientLight);
@@ -483,189 +93,14 @@ const gridHelper = new THREE.GridHelper(100, 100, 0x00ffff, 0x0a0a2e);
 gridHelper.position.y = -18;
 scene.add(gridHelper);
 
-const nodes = [];
-const lines = [];
-
-function createTextMesh(text, color) {
-	const canvas = document.createElement('canvas');
-	const context = canvas.getContext('2d');
-
-	canvas.width = 1024;
-	canvas.height = 128;
-
-	context.clearRect(0, 0, canvas.width, canvas.height);
-	context.font = '54px Orbitron, sans-serif';
-	context.textAlign = 'center';
-	context.textBaseline = 'middle';
-	context.shadowColor = color;
-	context.shadowBlur = 15;
-	context.fillStyle = color;
-	context.fillText(text.toUpperCase(), canvas.width / 2, canvas.height / 2);
-
-	const texture = new THREE.CanvasTexture(canvas);
-	texture.needsUpdate = true;
-
-	const geometry = new THREE.PlaneGeometry(4.5, 0.56);
-	const material = new THREE.MeshBasicMaterial({
-		map: texture,
-		transparent: true,
-		side: THREE.DoubleSide,
-		depthTest: true
-	});
-
-	const textMesh = new THREE.Mesh(geometry, material);
-
-	const backGeometry = new THREE.PlaneGeometry(4.6, 0.66);
-	const backMaterial = new THREE.MeshBasicMaterial({
-		color: 0x000510,
-		transparent: true,
-		opacity: 0.8,
-		side: THREE.DoubleSide
-	});
-	const backMesh = new THREE.Mesh(backGeometry, backMaterial);
-	backMesh.position.z = -0.05;
-
-	const textGroup = new THREE.Group();
-	textGroup.add(backMesh);
-	textGroup.add(textMesh);
-
-	const frameGeometry = new THREE.EdgesGeometry(new THREE.PlaneGeometry(4.6, 0.66));
-	const frameMaterial = new THREE.LineBasicMaterial({ color: color, linewidth: 2 });
-	const frame = new THREE.LineSegments(frameGeometry, frameMaterial);
-	textGroup.add(frame);
-
-	return textGroup;
-}
-
-function createNode(name, position, color, scale = 1, id = null) {
-	const group = new THREE.Group();
-	const rotatingGroup = new THREE.Group();
-
-	const geometry = new THREE.BoxGeometry(0.6 * scale, 0.6 * scale, 0.6 * scale);
-	const edges = new THREE.EdgesGeometry(geometry);
-	const lineMaterial = new THREE.LineBasicMaterial({ color: color, linewidth: 2 });
-	const cube = new THREE.LineSegments(edges, lineMaterial);
-	rotatingGroup.add(cube);
-
-	const glowGeometry = new THREE.BoxGeometry(0.4 * scale, 0.4 * scale, 0.4 * scale);
-	const glowMaterial = new THREE.MeshBasicMaterial({
-		color: color,
-		transparent: true,
-		opacity: 0.3,
-		wireframe: true
-	});
-	const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-	rotatingGroup.add(glow);
-
-	const light = new THREE.PointLight(color, 0.5, 5);
-	rotatingGroup.add(light);
-
-	group.add(rotatingGroup);
-
-	try {
-		const textMesh = createTextMesh(name, color);
-		textMesh.position.y = 1.5 * scale;
-		group.add(textMesh);
-	} catch (error) {
-		console.warn('Failed to create text mesh:', error);
-	}
-
-	group.position.set(...position);
-	// Ensure each node has a unique id for safe mapping back to architecture
-	const uid = id || (Math.random().toString(36).slice(2, 9));
-	group.userData = { id: uid, name, rotationSpeed: Math.random() * 0.01 + 0.005, rotatingGroup };
-
-	scene.add(group);
-	nodes.push(group);
-
-	return group;
-}
-
-function createLine(start, end, color, opacity = 0.5) {
-	const points = [
-		new THREE.Vector3(...start),
-		new THREE.Vector3(...end)
-	];
-	const geometry = new THREE.BufferGeometry().setFromPoints(points);
-	const material = new THREE.LineBasicMaterial({
-		color: color,
-		transparent: true,
-		opacity: opacity
-	});
-	const line = new THREE.Line(geometry, material);
-	scene.add(line);
-	lines.push(line);
-}
-
-// helper to get scene node by id
-function getSceneNodeById(id) {
-	return nodes.find(n => n.userData && n.userData.id === id) || null;
-}
-
-// createLine with optional ids so we can update geometry when nodes move
-function createLineWithIds(start, end, color, startId = null, endId = null, opacity = 0.5) {
-	const points = [
-		new THREE.Vector3(...start),
-		new THREE.Vector3(...end)
-	];
-	const geometry = new THREE.BufferGeometry().setFromPoints(points);
-	const material = new THREE.LineBasicMaterial({
-		color: color,
-		transparent: true,
-		opacity: opacity
-	});
-	const line = new THREE.Line(geometry, material);
-	line.userData = { startId, endId };
-	scene.add(line);
-	lines.push(line);
-	return line;
-}
-
-function createChildNodes(children, parentNode, parentPos, parentColor) {
-	children.forEach(child => {
-		if (child.name) {
-			const childColor = getColorForArchNode(child);
-			const childNode = createNode(child.name, child.pos, childColor, child.scale || 1, child.id || null);
-			const parentId = parentNode && parentNode.userData ? parentNode.userData.id : null;
-			createLineWithIds(parentPos, child.pos, parentColor, parentId, child.id || null);
-
-			if (child.children && child.children.length > 0) {
-				createChildNodes(child.children, childNode, child.pos, childColor);
-			}
-		}
-	});
-}
-
-// helper: update visible materials and light for a scene node to a new color (hex string)
-function updateSceneNodeColor(sceneNode, colorHex) {
-	if (!sceneNode || !colorHex) return;
-	try {
-		// rotatingGroup is stored in userData
-		const rg = sceneNode.userData && sceneNode.userData.rotatingGroup;
-		if (rg && rg.children) {
-			rg.children.forEach(c => {
-				if (c.material && c.material.color) {
-					c.material.color.set(colorHex);
-				}
-				if (c.isPointLight || c.type === 'PointLight') {
-					c.color && c.color.set && c.color.set(colorHex);
-				}
-			});
-		}
-		// update text/frame materials if present
-		sceneNode.children.forEach(child => {
-			if (child.type === 'Group') {
-				child.children.forEach(ch => {
-					if (ch.material && ch.material.color) {
-						ch.material.color.set(colorHex);
-					}
-				});
-			}
-		});
-	} catch (e) {
-		console.warn('Failed to update scene node color', e);
-	}
-}
+// Delegate low-level Three.js operations to archRenderer to keep SRP
+function createTextMesh(text, color) { return archRenderer.createTextMesh(text, color); }
+function createNode(name, position, color, scale = 1, id = null) { return archRenderer.createNode(name, position, color, scale, id); }
+function createLine(start, end, color, opacity = 0.5) { return archRenderer.createLineWithIds(start, end, color, null, null, opacity); }
+function createLineWithIds(start, end, color, startId = null, endId = null, opacity = 0.5) { return archRenderer.createLineWithIds(start, end, color, startId, endId, opacity); }
+function getSceneNodeById(id) { return archRenderer.getSceneNodeById(id); }
+function createChildNodes(children, parentNode, parentPos, parentColor) { return archRenderer.createChildNodes(children, parentNode, parentPos, parentColor, getColorForArchNode); }
+function updateSceneNodeColor(sceneNode, colorHex) { return archRenderer.updateSceneNodeColor(sceneNode, colorHex); }
 
 // Resolve color for an architecture node object: prefer category -> legend color, then explicit color, then default
 function getColorForArchNode(node) {
@@ -678,60 +113,131 @@ function getColorForArchNode(node) {
 	return '#666666';
 }
 
+// Ensure the renderer uses our color resolution logic (so rebuildScene picks up categories)
+try {
+	if (archRenderer) archRenderer.colorResolver = getColorForArchNode;
+} catch (e) {
+	console.warn('Failed to set archRenderer.colorResolver', e);
+}
+
+// Ensure renderer uses the same color resolution logic when building the scene
+try {
+    if (archRenderer) archRenderer.colorResolver = getColorForArchNode;
+} catch (e) { /* archRenderer may not be ready in rare ordering cases */ }
+
 function rebuildScene() {
-	// remember selected id to re-link after rebuilding
-	const prevSelectedId = selectedNode && selectedNode.userData ? selectedNode.userData.id : null;
-
-	nodes.forEach(node => scene.remove(node));
-	lines.forEach(line => scene.remove(line));
-	nodes.length = 0;
-	lines.length = 0;
-
-	if (architecture.root.name && architecture.root.name !== 'Empty Architecture') {
-		// ensure root has id
-		if (!architecture.root.id) architecture.root.id = (Math.random().toString(36).slice(2, 9));
-		const rootColor = getColorForArchNode(architecture.root);
-		const rootNode = createNode(architecture.root.name, architecture.root.pos, rootColor, architecture.root.scale, architecture.root.id);
-
-		if (architecture.root.children && architecture.root.children.length > 0) {
-			createChildNodes(architecture.root.children, rootNode, architecture.root.pos, rootColor);
-		}
-	}
-
-	// re-link selectedNode by id if possible
-	if (prevSelectedId) {
-		const found = nodes.find(n => n.userData && n.userData.id === prevSelectedId);
-		if (found) {
-			selectedNode = found;
-			if (selectedIndicator) selectedIndicator.style.display = 'block';
-			updateSelectedIndicatorPosition();
-			populateEditPanelForSelected();
-		} else {
-			selectedNode = null;
-			if (selectedIndicator) selectedIndicator.style.display = 'none';
-			populateEditPanelForSelected();
-		}
+	const prevSelectedId = selectedId || (selectedNode && selectedNode.userData ? selectedNode.userData.id : null);
+	const found = archRenderer.rebuildScene(architecture, prevSelectedId);
+	if (found) {
+		selectedNode = found;
+		selectedId = found.userData && found.userData.id ? found.userData.id : selectedId;
+		if (selectedIndicator) selectedIndicator.style.display = 'block';
+		updateSelectedIndicatorPosition();
+		populateEditPanelForSelected();
+	} else {
+		selectedNode = null;
+		selectedId = null;
+		if (selectedIndicator) selectedIndicator.style.display = 'none';
+		populateEditPanelForSelected();
 	}
 }
 
-// Particles
-const particlesGeometry = new THREE.BufferGeometry();
-const particlesCount = 1500;
-const positions = new Float32Array(particlesCount * 3);
+// --- Load / Save / Sample handlers (restore UI bindings) ---
+document.addEventListener('DOMContentLoaded', () => {
+	const saveBtn = document.getElementById('saveBtn');
+	const loadBtn = document.getElementById('loadBtn');
+	const sampleBtn = document.getElementById('sampleBtn');
+	const xmlFileInput = document.getElementById('xmlFileInput');
 
-for (let i = 0; i < particlesCount * 3; i++) {
-	positions[i] = (Math.random() - 0.5) * 100;
-}
+	if (saveBtn) {
+		saveBtn.addEventListener('click', () => {
+			if (!architecture.root || architecture.root.name === 'Empty Architecture' || !architecture.root.name) {
+				addMessage('No architecture to save. Please load an architecture first.');
+				return;
+			}
+			const xmlContent = ArchitectureXML.architectureToXML(architecture);
+			const blob = new Blob([xmlContent], { type: 'application/xml' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = 'architecture.xml';
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+			addMessage('Architecture saved successfully!');
+		});
+	}
 
-particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-const particlesMaterial = new THREE.PointsMaterial({
-	size: 0.05,
-	color: 0x00ffff,
-	transparent: true,
-	opacity: 0.6
+	if (loadBtn) {
+		loadBtn.addEventListener('click', () => {
+			if (xmlFileInput) xmlFileInput.click();
+		});
+	}
+
+	if (xmlFileInput) {
+		xmlFileInput.addEventListener('change', (event) => {
+			const file = event.target.files[0];
+			if (!file) return;
+			const reader = new FileReader();
+			reader.onload = (e) => {
+				try {
+					const xmlContent = e.target.result;
+					if (!xmlContent || xmlContent.trim() === '') throw new Error('Empty file');
+					const loadedArchitecture = ArchitectureXML.xmlToArchitecture(xmlContent);
+					if (!loadedArchitecture || !loadedArchitecture.root) throw new Error('Invalid architecture structure');
+
+					architecture = {
+						root: loadedArchitecture.root || { name: 'Unknown Root', pos: [0,0,0], color: '#ff00ff', scale: 1, children: [] },
+						legend: loadedArchitecture.legend || [],
+						uiInfo: loadedArchitecture.uiInfo || { title: '' }
+					};
+
+					// map legacy node colors to legend categories when possible
+					mapColorsToLegend(architecture.root, architecture.legend);
+					assignIdsRecursively(architecture.root);
+					try { UI.updateLegend(); } catch (e) { console.warn('UI.updateLegend failed', e); }
+					try { UI.updateTitle(); } catch (e) { console.warn('UI.updateTitle failed', e); }
+					rebuildScene();
+					addMessage('Architecture loaded successfully!');
+				} catch (err) {
+					addMessage('Error loading XML file: ' + err.message);
+				}
+			};
+			reader.readAsText(file);
+			event.target.value = '';
+		});
+	}
+
+	if (sampleBtn) {
+		sampleBtn.addEventListener('click', () => {
+			const sampleXML = `<?xml version="1.0" encoding="UTF-8"?>\n<arch>\n  <node name="ROOT" pos="0,0,0" color="#00ffff" scale="1">\n\t<node name="API Gateway" pos="10,5,0" color="#ff00ff" scale="0.8">\n\t  <node name="Auth Service" pos="15,8,5" color="#ffff00" scale="0.6" />\n\t  <node name="Rate Limiter" pos="15,8,-5" color="#ffff00" scale="0.6" />\n\t</node>\n\t<node name="Database Layer" pos="-10,5,0" color="#00ff00" scale="0.8">\n\t  <node name="Primary DB" pos="-15,8,5" color="#ffff00" scale="0.6" />\n\t  <node name="Cache" pos="-15,8,-5" color="#ffff00" scale="0.6" />\n\t</node>\n\t<node name="Workers" pos="0,-5,10" color="#ff6600" scale="0.8">\n\t  <node name="Job Queue" pos="5,-8,15" color="#ffff00" scale="0.6" />\n\t  <node name="Worker Pool" pos="-5,-8,15" color="#ffff00" scale="0.6" />\n\t</node>\n  </node>\n  <legend>\n\t<entry name="Core Services" color="#00ffff" />\n\t<entry name="Modules" color="#ff00ff" />\n\t<entry name="Components" color="#ffff00" />\n\t<entry name="Data Layer" color="#00ff00" />\n  </legend>\n  <ui-info>\n\t<title>MICROSERVICES ARCHITECTURE</title>\n  </ui-info>\n</arch>`;
+			try {
+				const loadedArchitecture = ArchitectureXML.xmlToArchitecture(sampleXML);
+				architecture = loadedArchitecture;
+                	mapColorsToLegend(architecture.root, architecture.legend);
+				assignIdsRecursively(architecture.root);
+				try { UI.updateLegend(); } catch (e) { console.warn('UI.updateLegend failed', e); }
+				try { UI.updateTitle(); } catch (e) { console.warn('UI.updateTitle failed', e); }
+				rebuildScene();
+				addMessage('Sample architecture loaded successfully!');
+			} catch (err) {
+				addMessage('Error loading sample: ' + err.message);
+			}
+		});
+	}
+
+	// Mobile menu bindings (wire to primary buttons)
+	const mobileSaveBtn = document.getElementById('mobileSaveBtn');
+	const mobileLoadBtn = document.getElementById('mobileLoadBtn');
+	const mobileSampleBtn = document.getElementById('mobileSampleBtn');
+	if (mobileSaveBtn) mobileSaveBtn.addEventListener('click', () => { if (saveBtn) saveBtn.click(); });
+	if (mobileLoadBtn) mobileLoadBtn.addEventListener('click', () => { if (loadBtn) loadBtn.click(); });
+	if (mobileSampleBtn) mobileSampleBtn.addEventListener('click', () => { if (sampleBtn) sampleBtn.click(); });
 });
-const particles = new THREE.Points(particlesGeometry, particlesMaterial);
-scene.add(particles);
+
+
+// particles are managed by archRenderer (keeps renderer concerns encapsulated)
 
 // Camera Controls
 const keys = { w: false, a: false, s: false, d: false, shift: false, space: false };
@@ -777,9 +283,7 @@ let renameInput = null;
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 // Gizmo state
-let gizmoGroup = null;
-let axisDragging = null; // 'x'|'y'|'z' or null
-let axisDragStart = null;
+// Gizmo is managed by archRenderer (archRenderer.gizmoGroup / gizmoPointer* methods)
 
 function resetAutoRotate() {
 	clearTimeout(inactivityTimer);
@@ -869,184 +373,45 @@ function isDesktop() {
 
 // Create DOM indicator for selected node
 function ensureSelectedIndicator() {
-	if (selectedIndicator) return;
-	selectedIndicator = document.createElement('div');
-	selectedIndicator.className = 'selected-node-indicator';
-	document.body.appendChild(selectedIndicator);
+	try { selectedIndicator = UI.ensureSelectedIndicator(); } catch (e) { console.warn('ensureSelectedIndicator delegate failed', e); }
 }
 
 function ensureRenameInput() {
-	if (renameInput) return;
-	renameInput = document.createElement('input');
-	renameInput.type = 'text';
-	renameInput.style.position = 'absolute';
-	renameInput.style.zIndex = 90;
-	renameInput.style.display = 'none';
-	renameInput.style.padding = '6px 8px';
-	renameInput.style.border = '1px solid #00ffff';
-	renameInput.style.background = 'rgba(0,0,0,0.8)';
-	renameInput.style.color = '#00ffff';
-	renameInput.style.fontFamily = 'Orbitron, sans-serif';
-	document.body.appendChild(renameInput);
-	renameInput.addEventListener('blur', () => {
-		if (!selectedNode) return;
-		const newName = renameInput.value.trim();
-		if (newName && newName !== selectedNode.userData.name) {
-			selectedNode.userData.name = newName;
-			// regenerate text mesh: for simplicity, rebuild the scene
-			updateArchitectureNameForSelected(newName);
-			rebuildScene();
-		}
-		renameInput.style.display = 'none';
-	});
+	try { renameInput = UI.ensureRenameInput(); } catch (e) { console.warn('ensureRenameInput delegate failed', e); }
 }
 
-function createGizmo() {
-	if (gizmoGroup) return gizmoGroup;
-	gizmoGroup = new THREE.Group();
-	const shaftGeom = new THREE.CylinderGeometry(0.06, 0.06, 1, 8);
-	const coneGeom = new THREE.ConeGeometry(0.12, 0.2, 8);
-
-	// X axis (red)
-	const matX = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-	const shaftX = new THREE.Mesh(shaftGeom, matX);
-	shaftX.rotation.z = -Math.PI / 2;
-	shaftX.position.x = 0.5;
-	const coneX = new THREE.Mesh(coneGeom, matX);
-	coneX.rotation.z = -Math.PI / 2;
-	coneX.position.x = 1.05;
-	const groupX = new THREE.Group();
-	groupX.add(shaftX);
-	groupX.add(coneX);
-	groupX.userData = { axis: 'x' };
-
-	// Y axis (green)
-	const matY = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-	const shaftY = new THREE.Mesh(shaftGeom, matY);
-	shaftY.position.y = 0.5;
-	const coneY = new THREE.Mesh(coneGeom, matY);
-	coneY.position.y = 1.05;
-	const groupY = new THREE.Group();
-	groupY.add(shaftY);
-	groupY.add(coneY);
-	groupY.userData = { axis: 'y' };
-
-	// Z axis (blue)
-	const matZ = new THREE.MeshBasicMaterial({ color: 0x0000ff });
-	const shaftZ = new THREE.Mesh(shaftGeom, matZ);
-	shaftZ.rotation.x = Math.PI / 2;
-	shaftZ.position.z = 0.5;
-	const coneZ = new THREE.Mesh(coneGeom, matZ);
-	coneZ.rotation.x = Math.PI / 2;
-	coneZ.position.z = 1.05;
-	const groupZ = new THREE.Group();
-	groupZ.add(shaftZ);
-	groupZ.add(coneZ);
-	groupZ.userData = { axis: 'z' };
-
-	gizmoGroup.add(groupX, groupY, groupZ);
-	gizmoGroup.visible = false;
-	scene.add(gizmoGroup);
-	return gizmoGroup;
-}
-
-function showGizmoAt(node) {
-	if (!node) return;
-	createGizmo();
-	gizmoGroup.position.copy(node.position);
-	gizmoGroup.visible = true;
-}
-
-function hideGizmo() {
-	if (!gizmoGroup) return;
-	gizmoGroup.visible = false;
-}
-
-function updateGizmoPosition() {
-	if (!gizmoGroup || !selectedNode) return;
-	gizmoGroup.position.copy(selectedNode.position);
-}
+// Gizmo implementation moved into ArchRenderer (create/show/hide/update)
 
 function updateSelectedIndicatorPosition() {
-	if (!selectedNode || !selectedIndicator) return;
-	const pos = selectedNode.position.clone();
-	const projected = pos.project(camera);
-	const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
-	const y = ( -projected.y * 0.5 + 0.5) * window.innerHeight;
-	selectedIndicator.style.left = x + 'px';
-	selectedIndicator.style.top = y + 'px';
+	try { return UI.updateSelectedIndicatorPosition(); } catch (e) { /* fallback: do nothing */ }
 }
 
 function showRenameInputAtSelected() {
-	if (!selectedNode || !renameInput) return;
-	const pos = selectedNode.position.clone();
-	const projected = pos.project(camera);
-	const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
-	const y = ( -projected.y * 0.5 + 0.5) * window.innerHeight;
-	renameInput.style.left = (x + 24) + 'px';
-	renameInput.style.top = (y - 12) + 'px';
-	renameInput.value = selectedNode.userData.name || '';
-	renameInput.style.display = 'block';
-	renameInput.focus();
+	try { return UI.showRenameInputAtSelected(); } catch (e) { /* ignore */ }
 }
 
 function persistSelectedNodePosition() {
-	if (!selectedNode) return;
-	// Find the matching node in architecture by id and update pos
-	const id = selectedNode.userData && selectedNode.userData.id;
+	const id = selectedId || (selectedNode && selectedNode.userData && selectedNode.userData.id);
 	if (!id) return;
+	// resolve transient scene node (if needed)
+	const sceneNode = selectedNode || archRenderer.getSceneNodeById(id);
+	if (!sceneNode) return;
+	// Find the matching node in architecture by id and update pos
 	const archNode = findNodeById(architecture.root, id);
 	if (archNode) {
-		archNode.pos = [selectedNode.position.x, selectedNode.position.y, selectedNode.position.z];
+		archNode.pos = [sceneNode.position.x, sceneNode.position.y, sceneNode.position.z];
 	} else if (architecture.root && architecture.root.id === id) {
-		architecture.root.pos = [selectedNode.position.x, selectedNode.position.y, selectedNode.position.z];
+		architecture.root.pos = [sceneNode.position.x, sceneNode.position.y, sceneNode.position.z];
 	}
 	// persist changes
 	rebuildScene();
 }
 
-function updateArchitectureNameForSelected(newName) {
-	if (!selectedNode) return;
-	const oldName = selectedNode.userData.name;
-	function searchAndRename(node) {
-		if (node.name === oldName) {
-			node.name = newName;
-			return true;
-		}
-		if (node.children) {
-			for (const c of node.children) {
-				if (searchAndRename(c)) return true;
-			}
-		}
-		return false;
-	}
-	if (architecture.root && architecture.root.name) {
-		if (architecture.root.name === oldName) {
-			architecture.root.name = newName;
-			return;
-		}
-		searchAndRename(architecture.root);
-	}
-}
+// renaming is handled by archmodel.renameNodeById (exposed as renameNodeById)
 
 // Helpers to find architecture node by id and keep mapping
-function findNodeById(node, id) {
-	if (!node) return null;
-	if (node.id && node.id === id) return node;
-	if (node.children) {
-		for (const c of node.children) {
-			const found = findNodeById(c, id);
-			if (found) return found;
-		}
-	}
-	return null;
-}
-
-function assignIdsRecursively(node) {
-	if (!node) return;
-	if (!node.id) node.id = (Math.random().toString(36).slice(2, 9));
-	if (node.children) node.children.forEach(assignIdsRecursively);
-}
+// model helpers imported from archmodel.js
+// findNodeById, assignIdsRecursively, mapColorsToLegend are imported at the top
 
 // Populate edit panel with selected node data
 function populateEditPanelForSelected() {
@@ -1059,6 +424,8 @@ function populateEditPanelForSelected() {
 		return;
 	}
 	const editContent = document.getElementById('editContent');
+	// resolve transient scene node from selectedId if needed
+	selectedNode = selectedNode || (selectedId ? archRenderer.getSceneNodeById(selectedId) : null);
 	if (!selectedNode) {
 		// show friendly message
 		panel.style.display = 'block';
@@ -1097,7 +464,7 @@ function populateEditPanelForSelected() {
 				<div class="edit-actions"><button class="button small" id="addChildBtn">+ CHILD</button><button class="button small danger" id="deleteNodeBtn">DELETE</button></div>
 			`;
 			// re-wire the add/delete handlers (they already exist on document load, so no-op if present)
-			try { attachImmediateEditHandlers(); } catch (e) {}
+			try { UI.attachImmediateEditHandlers(); } catch (e) { console.warn('UI.attachImmediateEditHandlers failed', e); }
 			try { document.getElementById('addChildBtn').addEventListener('click', () => {}); } catch (e) {}
 		}
 		// now set values
@@ -1106,11 +473,11 @@ function populateEditPanelForSelected() {
 		const posX2 = document.getElementById('editPosX');
 		const posY2 = document.getElementById('editPosY');
 		const posZ2 = document.getElementById('editPosZ');
-		if (nameIn2) nameIn2.value = source.name || selectedNode.userData.name || '';
-		if (scaleIn2) scaleIn2.value = source.scale || 1;
-		if (posX2) posX2.value = (selectedNode.position.x || 0).toFixed(2);
-		if (posY2) posY2.value = (selectedNode.position.y || 0).toFixed(2);
-		if (posZ2) posZ2.value = (selectedNode.position.z || 0).toFixed(2);
+	if (nameIn2) nameIn2.value = source.name || selectedNode.userData.name || '';
+	if (scaleIn2) scaleIn2.value = source.scale || 1;
+	if (posX2) posX2.value = (selectedNode.position.x || 0).toFixed(2);
+	if (posY2) posY2.value = (selectedNode.position.y || 0).toFixed(2);
+	if (posZ2) posZ2.value = (selectedNode.position.z || 0).toFixed(2);
 	} else {
 		// fallback: ensure base inputs exist and populate them
 		if (nameIn) nameIn.value = selectedNode.userData.name || '';
@@ -1121,7 +488,7 @@ function populateEditPanelForSelected() {
 	}
 
 	// update legend assign select options and select current category if any
-	renderLegendAssignSelect();
+	try { UI.renderLegendAssignSelect(); } catch (e) { /* ignore */ }
 	const sel = document.getElementById('assignLegendSelect');
 	if (sel) {
 		// determine current category for this selected node from architecture (category stores legend id)
@@ -1154,122 +521,12 @@ function populateEditPanelForSelected() {
 let editLegendMode = false; // keep for backward compatibility but prefer editMode
 
 function renderLegendEditor() {
-	const list = document.getElementById('legendList');
-	if (!list) return;
-	list.innerHTML = '';
-	const legend = architecture.legend || [];
-	legend.forEach((entry, idx) => {
-		const row = document.createElement('div');
-		row.className = 'legend-row';
-		if (editMode || editLegendMode) {
-			row.innerHTML = `
-				<input type="text" class="legend-name" data-idx="${idx}" value="${entry.name}" />
-				<div class="legend-swatch" data-idx="${idx}" title="Click to change color" style="width:28px;height:28px;border:1px solid #00ffff;background:${entry.color};box-sizing:border-box;cursor:pointer;"></div>
-				<button class="button small legend-remove" data-idx="${idx}">DEL</button>
-			`;
-		} else {
-			// readonly view for regular edit panel
-			row.innerHTML = `
-				<div style="flex:1;color:#00ffff;">${entry.name}</div>
-				<div style="width:12px;height:12px;background:${entry.color};border:1px solid rgba(255,255,255,0.1);"></div>
-			`;
-		}
-		list.appendChild(row);
-	});
-	// attach handlers when legend is editable (global edit mode or legacy per-legend mode)
-	if (editMode || editLegendMode) {
-		list.querySelectorAll('.legend-name').forEach(inp => {
-			inp.addEventListener('change', (e) => {
-				const i = parseInt(e.target.dataset.idx, 10);
-				if (!architecture.legend[i]) return;
-				architecture.legend[i].name = e.target.value;
-				updateLegend();
-			});
-		});
-		// swatch click opens color picker near the swatch
-		list.querySelectorAll('.legend-swatch').forEach(swatch => {
-			swatch.addEventListener('click', (e) => {
-				const i = parseInt(swatch.dataset.idx, 10);
-				if (isNaN(i) || !architecture.legend[i]) return;
-				const current = architecture.legend[i].color || '#00ffff';
-				openColorPickerNear(swatch, current, (val) => {
-					architecture.legend[i].color = val;
-					updateLegend();
-					rebuildScene();
-				});
-			});
-		});
-			list.querySelectorAll('.legend-remove').forEach(btn => {
-			btn.addEventListener('click', (e) => {
-				const i = parseInt(e.target.dataset.idx, 10);
-				if (i >= 0 && i < architecture.legend.length) {
-					architecture.legend.splice(i, 1);
-					updateLegend();
-					renderLegendEditor();
-					renderLegendAssignSelect();
-				}
-			});
-		});
-	}
+	try { return UI.renderLegendEditor(); } catch (e) { console.warn('renderLegendEditor delegate failed', e); }
 }
 
 // open a temporary color input positioned near an element to ensure the native picker appears next to it
 function openColorPickerNear(anchorEl, initialColor, onPick) {
-	try {
-		const rect = anchorEl.getBoundingClientRect();
-		const input = document.createElement('input');
-		input.type = 'color';
-		input.value = initialColor || '#00ffff';
-		// position exactly over the anchor element so the native picker appears
-		// anchored to the swatch. Use same size and location as the swatch.
-		input.style.position = 'absolute';
-		input.style.left = (rect.left + window.scrollX) + 'px';
-		input.style.top = (rect.top + window.scrollY) + 'px';
-		input.style.width = (rect.width) + 'px';
-		input.style.height = (rect.height) + 'px';
-		input.style.zIndex = 100000;
-		// Make it nearly invisible but present so it receives pointer events.
-		input.style.border = 'none';
-		input.style.padding = '0';
-		input.style.margin = '0';
-		input.style.background = 'transparent';
-		input.style.opacity = '0.01';
-		document.body.appendChild(input);
-
-		let cleaned = false;
-		const cleanup = () => {
-			if (cleaned) return;
-			cleaned = true;
-			try { input.remove(); } catch (e) {}
-			try { document.removeEventListener('mousedown', onDocClick, true); } catch(e) {}
-			try { clearTimeout(timeoutId); } catch(e) {}
-		};
-
-		const doPick = (val) => {
-			try {
-				if (onPick) onPick(val);
-			} catch (e) { console.warn('onPick handler error', e); }
-		};
-
-		input.addEventListener('input', (e) => {
-			doPick(e.target.value);
-		});
-		input.addEventListener('change', (e) => { doPick(e.target.value); cleanup(); });
-		input.addEventListener('blur', () => { /* keep cleanup deferred - user may have selected color */ setTimeout(cleanup, 200); });
-
-		const onDocClick = (ev) => {
-			if (!input.contains(ev.target)) cleanup();
-		};
-		document.addEventListener('mousedown', onDocClick, true);
-
-		// Fallback: ensure we don't leave input dangling
-		const timeoutId = setTimeout(() => { cleanup(); }, 6000);
-
-		// trigger native picker
-		input.click();
-	} catch (err) {
-		console.warn('color picker fallback', err);
-	}
+	try { return UI.openColorPickerNear(anchorEl, initialColor, onPick); } catch (e) { console.warn('openColorPickerNear delegate failed', e); }
 }
 
 // Add legend item from editor
@@ -1292,9 +549,9 @@ if (addLegendBtn) {
 		// clear inputs
 		nameInp.value = '';
 		swatch.style.backgroundColor = '#00ffff';
-		updateLegend();
-		renderLegendEditor();
-		renderLegendAssignSelect();
+		try { UI.updateLegend(); } catch (e) { console.warn('UI.updateLegend failed', e); }
+		try { UI.renderLegendEditor(); } catch (e) {}
+		try { UI.renderLegendAssignSelect(); } catch (e) {}
 		addMessage('Legend added');
 	});
 }
@@ -1304,9 +561,7 @@ const newLegendSwatch = document.getElementById('newLegendSwatch');
 if (newLegendSwatch) {
 	newLegendSwatch.addEventListener('click', () => {
 		const current = newLegendSwatch.style.backgroundColor || '#00ffff';
-		openColorPickerNear(newLegendSwatch, current, (val) => {
-			newLegendSwatch.style.backgroundColor = val;
-		});
+		try { UI.openColorPickerNear(newLegendSwatch, current, (val) => { newLegendSwatch.style.backgroundColor = val; }); } catch (e) { console.warn('UI.openColorPickerNear failed', e); }
 	});
 }
 
@@ -1331,11 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			const idx = parseInt(target.dataset.idx, 10);
 			if (isNaN(idx) || !architecture.legend[idx]) return;
 			const current = architecture.legend[idx].color || '#00ffff';
-			openColorPickerNear(target, current, (val) => {
-				architecture.legend[idx].color = val;
-				updateLegend();
-				rebuildScene();
-			});
+			try { UI.openColorPickerNear(target, current, (val) => { architecture.legend[idx].color = val; updateLegend(); rebuildScene(); }); } catch (e) { console.warn('UI.openColorPickerNear failed', e); }
 			return;
 		}
 
@@ -1370,51 +621,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Render select used to assign legend category to a node
 function renderLegendAssignSelect() {
-	const sel = document.getElementById('assignLegendSelect');
-	if (!sel) return;
-	sel.innerHTML = '';
-	const blank = document.createElement('option');
-	blank.value = '';
-	blank.textContent = '-- none --';
-	sel.appendChild(blank);
-	(architecture.legend || []).forEach((entry) => {
-		const opt = document.createElement('option');
-		opt.value = entry.id || entry.name;
-		opt.textContent = entry.name;
-		sel.appendChild(opt);
-	});
+	try { return UI.renderLegendAssignSelect(); } catch (e) { console.warn('renderLegendAssignSelect delegate failed', e); }
 }
 
-// assign to currently selected node immediately when select changes
-const assignLegendSelectEl = document.getElementById('assignLegendSelect');
-if (assignLegendSelectEl) {
-	assignLegendSelectEl.addEventListener('change', () => {
-		if (!selectedNode) return;
-		const sel = assignLegendSelectEl;
-		const selectedLegendId = sel.value === '' ? '' : sel.value;
-		const archNode = findNodeById(architecture.root, selectedNode.userData.id);
-		if (!archNode) return;
-		if (!selectedLegendId) {
-			delete archNode.category;
-			// optionally, keep existing color if node had legacy color
-		} else {
-			archNode.category = selectedLegendId;
-			const entry = architecture.legend.find(e => e.id === selectedLegendId);
-			if (entry) {
-				// apply immediate visual update
-				updateSceneNodeColor(selectedNode, entry.color);
-			}
-		}
-		// persist and ensure lines/ids remain correct
-		rebuildScene();
-		renderLegendAssignSelect();
-		populateEditPanelForSelected();
-	});
+// Update the compact left-side legend display (used in the left panel)
+function updateLeftLegendDisplay() {
+	try { return UI.updateLeftLegendDisplay(); } catch (e) { console.warn('updateLeftLegendDisplay delegate failed', e); }
 }
+
+// Synchronize legend data across UI: left panel, editor and select inputs
+function updateLegend() {
+	try { return UI.updateLegend(); } catch (e) { console.warn('updateLegend delegate failed', e); }
+}
+
+// Update page title and header based on architecture.uiInfo
+function updateTitle() {
+	try { return UI.updateTitle(); } catch (e) { console.warn('updateTitle delegate failed', e); }
+}
+
+// Note: change handler for #assignLegendSelect is attached inside renderLegendAssignSelect()
 
 // keep select options up to date and ensure legend editor visibility on load
 document.addEventListener('DOMContentLoaded', () => {
-	renderLegendAssignSelect();
+	try { UI.renderLegendAssignSelect(); } catch (e) {}
 	const legendEditor = document.getElementById('legendEditor');
  	if (legendEditor) {
  		legendEditor.style.display = editMode ? '' : 'none';
@@ -1428,57 +657,16 @@ document.addEventListener('DOMContentLoaded', () => {
 		const nodeHeader = document.getElementById('nodeEditorHeader');
 		if (nodeHeader) nodeHeader.style.display = editMode ? '' : 'none';
 	// render legend editor UI (editable by default)
-	try { renderLegendEditor(); } catch (e) {}
+	try { UI.renderLegendEditor(); } catch (e) {}
 });
 
 // Immediate update handlers for edit panel fields: update model and scene on change
 function attachImmediateEditHandlers() {
-	const nameIn = document.getElementById('editName');
-	const scaleIn = document.getElementById('editScale');
-	const posX = document.getElementById('editPosX');
-	const posY = document.getElementById('editPosY');
-	const posZ = document.getElementById('editPosZ');
-
-	const applyChanges = () => {
-		if (!selectedNode) return;
-		const newName = nameIn.value.trim();
-		const newScale = parseFloat(scaleIn.value) || 1;
-		const x = parseFloat(posX.value) || 0;
-		const y = parseFloat(posY.value) || 0;
-		const z = parseFloat(posZ.value) || 0;
-
-		// update 3D node
-		selectedNode.userData.name = newName;
-		selectedNode.position.set(x, y, z);
-
-		// update architecture model
-		const archNode = findNodeById(architecture.root, selectedNode.userData.id);
-		if (archNode) {
-			archNode.name = newName;
-			archNode.scale = newScale;
-			archNode.pos = [x, y, z];
-		} else if (architecture.root && architecture.root.name === selectedNode.userData.name) {
-			architecture.root.name = newName;
-			architecture.root.scale = newScale;
-			architecture.root.pos = [x, y, z];
-		}
-
-		// minimal immediate feedback: update text label if present
-		updateSelectedIndicatorPosition();
-		updateGizmoPosition();
-		// ensure persistent scene state
-		rebuildScene();
-	};
-
-	if (nameIn) nameIn.addEventListener('change', applyChanges);
-	if (scaleIn) scaleIn.addEventListener('change', applyChanges);
-	if (posX) posX.addEventListener('change', applyChanges);
-	if (posY) posY.addEventListener('change', applyChanges);
-	if (posZ) posZ.addEventListener('change', applyChanges);
+	try { return UI.attachImmediateEditHandlers(); } catch (e) { console.warn('attachImmediateEditHandlers delegate failed', e); }
 }
 
 // attach once
-try { attachImmediateEditHandlers(); } catch (e) {}
+try { UI.attachImmediateEditHandlers(); } catch (e) {}
 
 // Add child to selected node (used from edit panel only)
 document.getElementById('addChildBtn').addEventListener('click', () => {
@@ -1496,23 +684,23 @@ document.getElementById('addChildBtn').addEventListener('click', () => {
 		return;
 	}
 
-	const parentNode = selectedNode || null;
-	const newNode = { id: (Math.random().toString(36).slice(2, 9)), name: 'New Node', pos: parentNode ? [parentNode.position.x + 5, parentNode.position.y, parentNode.position.z] : [architecture.root.pos[0] + 5, architecture.root.pos[1], architecture.root.pos[2]], scale: 0.6, children: [] };
+		const parentSceneNode = selectedNode || (selectedId ? archRenderer.getSceneNodeById(selectedId) : null);
+		const newNode = { id: (Math.random().toString(36).slice(2, 9)), name: 'New Node', pos: parentSceneNode ? [parentSceneNode.position.x + 5, parentSceneNode.position.y, parentSceneNode.position.z] : [architecture.root.pos[0] + 5, architecture.root.pos[1], architecture.root.pos[2]], scale: 0.6, children: [] };
 
-	if (parentNode) {
-		const archParent = findNodeById(architecture.root, parentNode.userData.id) || (architecture.root.name === parentNode.userData.name ? architecture.root : null);
-		if (archParent) {
-			if (!archParent.children) archParent.children = [];
-			archParent.children.push(newNode);
+		if (parentSceneNode) {
+			const archParent = findNodeById(architecture.root, parentSceneNode.userData.id) || (architecture.root.name === parentSceneNode.userData.name ? architecture.root : null);
+			if (archParent) {
+				if (!archParent.children) archParent.children = [];
+				archParent.children.push(newNode);
+			} else {
+				if (!architecture.root.children) architecture.root.children = [];
+				architecture.root.children.push(newNode);
+			}
 		} else {
+			// no selected node -- append to root
 			if (!architecture.root.children) architecture.root.children = [];
 			architecture.root.children.push(newNode);
 		}
-	} else {
-		// no selected node -- append to root
-		if (!architecture.root.children) architecture.root.children = [];
-		architecture.root.children.push(newNode);
-	}
 
 	rebuildScene();
 	addMessage('Child node added');
@@ -1522,24 +710,11 @@ document.getElementById('addChildBtn').addEventListener('click', () => {
 document.getElementById('deleteNodeBtn').addEventListener('click', () => {
 	if (!selectedNode) return;
 	const id = selectedNode.userData.id;
-	// recursive remove function
-	function removeById(parent) {
-		if (!parent || !parent.children) return false;
-		const idx = parent.children.findIndex(c => c.id === id);
-		if (idx !== -1) {
-			parent.children.splice(idx, 1);
-			return true;
-		}
-		for (const c of parent.children) {
-			if (removeById(c)) return true;
-		}
-		return false;
-	}
 	if (architecture.root.id === id) {
 		addMessage('Cannot delete root node');
 		return;
 	}
-	if (!removeById(architecture.root)) {
+	if (!deleteNodeById(architecture.root, id)) {
 		addMessage('Failed to delete node (mapping not found)');
 		return;
 	}
@@ -1551,114 +726,12 @@ document.getElementById('deleteNodeBtn').addEventListener('click', () => {
 // Toggle edit mode (desktop only)
 // Wire UI handlers safely (guarded to avoid double bindings)
 function wireUiHandlers() {
-	const attachOnce = (id, event, fn) => {
-		const el = document.getElementById(id);
-		if (!el) return;
-		if (el.dataset && el.dataset.wired) return;
-		el.addEventListener(event, fn);
-		el.dataset.wired = '1';
-	};
-
-	attachOnce('editBtn', 'click', () => {
-		if (!isDesktop()) {
-			addMessage('Edit mode is available on desktop only.');
-			return;
-		}
-		editMode = !editMode;
-		const btn = document.getElementById('editBtn');
-		if (btn) {
-			btn.classList.toggle('active', editMode);
-			// update button label to reflect current state
-			btn.textContent = editMode ? '✖️ EXIT EDITOR' : '✏️ EDIT';
-		}
-		if (editMode) {
-			// render legend editor as editable immediately
-			renderLegendEditor();
-			renderLegendAssignSelect();
-			// show node editor header and panel
-			const nodeHeader = document.getElementById('nodeEditorHeader');
-			if (nodeHeader) nodeHeader.style.display = '';
-			const editPanel = document.getElementById('editPanel');
-			if (editPanel) { editPanel.style.display = ''; editPanel.setAttribute('aria-hidden', 'false'); }
-			ensureSelectedIndicator();
-			ensureRenameInput();
-			// disable auto-rotate while editing
-			autoRotate = false;
-			// hide certain UI controls that should not be used while editing
-			const toHide = ['saveBtn', 'loadBtn', 'sampleBtn'];
-			toHide.forEach(id => {
-				const el = document.getElementById(id);
-				if (el) {
-					el.dataset._wasHiddenByEdit = el.style.display === 'none' ? '1' : '';
-					el.style.display = 'none';
-				}
-			});
-			// hide the entire smoothness control (label + min/max + slider)
-			const smoothCtrl = document.querySelector('.smoothness-control');
-			if (smoothCtrl) {
-				smoothCtrl.dataset._wasHiddenByEdit = smoothCtrl.style.display === 'none' ? '1' : '';
-				smoothCtrl.style.display = 'none';
-			}
-			addMessage('Edit mode enabled: use gizmo arrows to move nodes, double-click to rename.');
-			// show legend editor only in edit mode
-			const legendEditor = document.getElementById('legendEditor');
-			if (legendEditor) legendEditor.style.display = '';
-			populateEditPanelForSelected();
-		} else {
-			// hide node editor header and panel
-			const nodeHeader = document.getElementById('nodeEditorHeader');
-			if (nodeHeader) nodeHeader.style.display = 'none';
-			const editPanel = document.getElementById('editPanel');
-			if (editPanel) { editPanel.style.display = 'none'; editPanel.setAttribute('aria-hidden', 'true'); }
-			if (selectedIndicator) selectedIndicator.style.display = 'none';
-			if (renameInput) renameInput.style.display = 'none';
-			selectedNode = null;
-			hideGizmo();
-			populateEditPanelForSelected();
-			// schedule auto-rotate to return after inactivity (3s)
-			resetAutoRotate();
-			// restore previously-hidden controls
-			const toShow = ['saveBtn', 'loadBtn', 'sampleBtn'];
-			toShow.forEach(id => {
-				const el = document.getElementById(id);
-				if (el) {
-					// if we previously hid it, restore display; otherwise leave as-is
-					if (!el.dataset._wasHiddenByEdit) {
-						el.style.display = '';
-					} else {
-						// clean up marker
-						delete el.dataset._wasHiddenByEdit;
-					}
-				}
-			});
-			// restore smoothness control
-			const smoothCtrlRestore = document.querySelector('.smoothness-control');
-			if (smoothCtrlRestore) {
-				if (!smoothCtrlRestore.dataset._wasHiddenByEdit) {
-					smoothCtrlRestore.style.display = '';
-				} else {
-					delete smoothCtrlRestore.dataset._wasHiddenByEdit;
-				}
-			}
-			addMessage('Edit mode disabled. Auto-rotate will resume after inactivity.');
-			// hide legend editor when not editing
-			const legendEditor = document.getElementById('legendEditor');
-			if (legendEditor) legendEditor.style.display = 'none';
-		}
-	});
-
-	attachOnce('applyEditBtn', 'click', () => {
-		const el = document.getElementById('applyEditBtn');
-		if (!el) return;
-		// existing handler already attached earlier; noop here
-	});
-
-	// addNodeBtn removed from main menu; adding is done from edit panel via addChildBtn
+	try { return UI.wireUiHandlers(); } catch (e) { console.warn('wireUiHandlers delegate failed', e); }
 }
 
 // Call wiring immediately and also on DOMContentLoaded as a fallback
-try { wireUiHandlers(); } catch (e) { /* ignore */ }
-document.addEventListener('DOMContentLoaded', () => { try { wireUiHandlers(); } catch (e) {} });
+try { UI.wireUiHandlers(); } catch (e) { /* ignore */ }
+document.addEventListener('DOMContentLoaded', () => { try { UI.wireUiHandlers(); } catch (e) {} });
 
 // Selection via click
 document.addEventListener('click', (e) => {
@@ -1678,46 +751,28 @@ document.addEventListener('click', (e) => {
 		while (obj && !nodes.includes(obj)) {
 			obj = obj.parent;
 		}
-		selectedNode = obj || intersects[0].object.parent;
+		const resolved = obj || intersects[0].object.parent;
+		if (resolved) {
+			// set canonical selected id and resolve transient scene node
+			selectedId = resolved.userData && resolved.userData.id ? resolved.userData.id : null;
+			selectedNode = archRenderer.getSceneNodeById(selectedId);
 			if (selectedNode) {
 				ensureSelectedIndicator();
 				selectedIndicator.style.display = 'block';
 				updateSelectedIndicatorPosition();
 				populateEditPanelForSelected();
-				showGizmoAt(selectedNode);
+				try { archRenderer.showGizmoAt(selectedNode); } catch (e) {}
 			}
+		}
 	} else {
 		selectedNode = null;
+		selectedId = null;
 		if (selectedIndicator) selectedIndicator.style.display = 'none';
 		populateEditPanelForSelected();
 	}
 });
 
-// Utility: compute closest point on axis line (origin + dir * t) to a ray
-function closestPointOnAxisToRay(ray, axisOrigin, axisDir) {
-	// Solve for t in least squares: minimize |(axisOrigin + axisDir * t) - (ray.origin + ray.direction * s)|
-	// Closed form from line-line closest points
-	const p1 = axisOrigin.clone();
-	const d1 = axisDir.clone().normalize();
-	const p2 = ray.origin.clone();
-	const d2 = ray.direction.clone().normalize();
-
-	const r = p1.clone().sub(p2);
-	const a = d1.dot(d1);
-	const b = d1.dot(d2);
-	const c = d2.dot(d2);
-	const d = d1.dot(r);
-	const e = d2.dot(r);
-
-	const denom = a * c - b * b;
-	let t = 0;
-	if (Math.abs(denom) > 1e-6) {
-		t = (b * e - c * d) / denom;
-	} else {
-		t = 0;
-	}
-	return p1.add(d1.multiplyScalar(t));
-}
+// gizmo closest point helper moved into ArchRenderer
 
 // Gizmo interaction: start axis drag when clicking on gizmo
 document.addEventListener('mousedown', (e) => {
@@ -1727,56 +782,43 @@ document.addEventListener('mousedown', (e) => {
 	mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
 	mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 	raycaster.setFromCamera(mouse, camera);
-	// check gizmo children
-	if (gizmoGroup && gizmoGroup.visible) {
-		const picks = raycaster.intersectObjects(gizmoGroup.children, true);
-		if (picks && picks.length) {
-			const picked = picks[0].object;
-			// find parent group with userData.axis
-			let g = picked;
-			while (g && !g.userData.axis) g = g.parent;
-			if (g && g.userData && g.userData.axis) {
-				axisDragging = g.userData.axis;
-				axisDragStart = closestPointOnAxisToRay(raycaster.ray, gizmoGroup.position.clone(), new THREE.Vector3(axisDragging === 'x' ? 1 : 0, axisDragging === 'y' ? 1 : 0, axisDragging === 'z' ? 1 : 0));
-				document.body.style.cursor = 'grabbing';
-				// prevent camera drag
-				isDragging = false;
-				isMiddleDragging = false;
-				e.preventDefault();
-				return;
-			}
+	// delegate gizmo hit testing to renderer
+	try {
+		const axis = archRenderer.gizmoPointerDown(raycaster);
+		if (axis) {
+			document.body.style.cursor = 'grabbing';
+			// prevent camera drag
+			isDragging = false;
+			isMiddleDragging = false;
+			e.preventDefault();
+			return;
 		}
-	}
+	} catch (err) { /* ignore */ }
 });
 
 document.addEventListener('mousemove', (e) => {
 	if (!editMode) return;
-	if (!axisDragging || !selectedNode) return;
-	const rect = renderer.domElement.getBoundingClientRect();
-	mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-	mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-	raycaster.setFromCamera(mouse, camera);
-	const axisDir = new THREE.Vector3(axisDragging === 'x' ? 1 : 0, axisDragging === 'y' ? 1 : 0, axisDragging === 'z' ? 1 : 0);
-	const closest = closestPointOnAxisToRay(raycaster.ray, gizmoGroup.position.clone(), axisDir);
-	if (closest) {
-		selectedNode.position.copy(closest);
-		updateSelectedIndicatorPosition();
-		updateGizmoPosition();
-		// apply immediately to architecture model
-		const archNode = findNodeById(architecture.root, selectedNode.userData.id);
-		if (archNode) {
-			archNode.pos = [selectedNode.position.x, selectedNode.position.y, selectedNode.position.z];
+	// delegate move handling to renderer when a gizmo drag is active
+	try {
+		const rect = renderer.domElement.getBoundingClientRect();
+		mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+		mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+		raycaster.setFromCamera(mouse, camera);
+		const closest = archRenderer.gizmoPointerMove(raycaster, selectedNode);
+		if (closest) {
+			updateSelectedIndicatorPosition();
+			// apply immediately to architecture model
+			const archNode = findNodeById(architecture.root, selectedNode.userData.id);
+			if (archNode) archNode.pos = [selectedNode.position.x, selectedNode.position.y, selectedNode.position.z];
 		}
-	}
+	} catch (err) { /* ignore */ }
 });
 
 document.addEventListener('mouseup', (e) => {
-	if (axisDragging) {
-		axisDragging = null;
-		axisDragStart = null;
-		document.body.style.cursor = 'default';
-		persistSelectedNodePosition();
-	}
+	// delegate gizmo pointer up
+	try { archRenderer.gizmoPointerUp(); } catch (err) {}
+	document.body.style.cursor = 'default';
+	persistSelectedNodePosition();
 });
 
 // Double click to rename
@@ -2069,60 +1111,23 @@ function animate() {
 	camera.position.y = currentY + currentOrbitHeight;
 	camera.lookAt(currentX, currentY, currentZ);
 
-	nodes.forEach(node => {
-		if (node.userData.rotatingGroup) {
-			node.userData.rotatingGroup.rotation.y += node.userData.rotationSpeed;
-			node.userData.rotatingGroup.rotation.x += node.userData.rotationSpeed * 0.5;
-		}
-	});
-
-	lines.forEach((line, i) => {
-		// animate opacity
-		line.material.opacity = 0.3 + Math.sin(frame * 0.05 + i) * 0.2;
-		// if line has linked node ids, update geometry to follow nodes
-		if (line.userData && (line.userData.startId || line.userData.endId)) {
-			const startNode = line.userData.startId ? getSceneNodeById(line.userData.startId) : null;
-			const endNode = line.userData.endId ? getSceneNodeById(line.userData.endId) : null;
-			if (startNode || endNode) {
-				const posAttr = line.geometry.attributes.position;
-				const arr = posAttr.array;
-				if (startNode) {
-					arr[0] = startNode.position.x;
-					arr[1] = startNode.position.y;
-					arr[2] = startNode.position.z;
-				}
-				if (endNode) {
-					arr[3] = endNode.position.x;
-					arr[4] = endNode.position.y;
-					arr[5] = endNode.position.z;
-				}
-				posAttr.needsUpdate = true;
-				line.geometry.computeBoundingSphere();
-			}
-		}
-	});
-
-	particles.rotation.y += 0.0003;
-	particles.rotation.x += 0.0001;
+	// delegate node/line/particle updates to renderer
+	archRenderer.update(frame);
 
 	// keep UI overlays and gizmo in sync with selected node when camera moves
 	if (selectedNode) {
 		updateSelectedIndicatorPosition();
-		updateGizmoPosition();
+		try { archRenderer.updateGizmoPosition(selectedNode); } catch (e) {}
 		if (renameInput && renameInput.style.display !== 'none') {
 			showRenameInputAtSelected();
 		}
 	}
 
-	renderer.render(scene, camera);
+	archRenderer.render();
 }
 
 animate();
 
 window.addEventListener('resize', () => {
-	camera.aspect = window.innerWidth / window.innerHeight;
-	camera.updateProjectionMatrix();
-	renderer.setSize(window.innerWidth, window.innerHeight);
+	archRenderer.resize(window.innerWidth, window.innerHeight);
 });
-
-export { ArchitectureXML }; // export in case other modules need it
