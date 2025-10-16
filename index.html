@@ -3,7 +3,6 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<!-- Reduce aggressive caching during development / debugging on mobile devices -->
 	<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 	<meta http-equiv="Pragma" content="no-cache" />
 	<meta http-equiv="Expires" content="0" />
@@ -52,14 +51,10 @@
 						<span>MAX</span>
 					</div>
 				</div>
-
-				<!-- Legend editor (hidden initially, shown in edit mode) -->
-				<div class="legend-editor" id="legendEditor" style="margin-top:12px;display:none;">
-					<div style="margin-bottom:8px;">
-						<div class="legend-title" style="font-size:12px;color:#00ccff;">LEGEND EDITOR</div>
-					</div>
+				<div class="legend-editor" id="legendEditor" style="display:none;">
+					<div class="legend-title" style="font-size:12px;color:#00ccff;">LEGEND EDITOR</div>
 					<div id="legendList"></div>
-					<div class="legend-row" style="margin-top:8px;">
+					<div class="legend-row">
 						<input type="text" id="newLegendName" placeholder="Name" />
 						<div id="newLegendSwatch" style="width:28px;height:28px;border:1px solid #00ffff;background:#00ffff;cursor:pointer;"></div>
 						<button class="button small" id="addLegendBtn">ADD</button>
@@ -86,7 +81,7 @@
 		<div class="message-display" id="messageDisplay"></div>
 		<div class="ui-toggle" id="uiToggle">Press U to show UI</div>
 	</div>
-	<!-- Mobile controls -->
+    
 	<div id="mobileControls" class="mobile-controls" aria-hidden="true">
 		<div id="leftStick" class="stick left-stick" aria-label="move joystick">
 			<div class="stick-knob"></div>
@@ -100,7 +95,7 @@
 		</div>
 	</div>
 
-	<!-- Mobile menu: quick actions for small screens -->
+    
 	<div class="mobile-menu" id="mobileMenu">
 		<button id="mobileSaveBtn" class="mobile-action">💾</button>
 		<button id="mobileLoadBtn" class="mobile-action">📁</button>

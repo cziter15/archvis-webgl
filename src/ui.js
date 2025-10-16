@@ -35,8 +35,6 @@ export class UI {
 	  if (legendEditor) legendEditor.style.display = '';
 	  if (smooth) smooth.style.display = 'none';
 	  this.addMessage('Edit mode: use arrows to move nodes');
-	  
-	  // Deselect any selected node when entering edit mode
 	  this.app.deselectNode();
 	  this.renderLegendEditor();
 	  this.renderEmptyEditPanel();
@@ -139,7 +137,6 @@ export class UI {
   }
 
   _setupLegendEventListeners(list) {
-	// Name inputs
 	list.querySelectorAll('.legend-name').forEach(inp => {
 	  const listener = (e) => {
 		const i = parseInt(e.target.dataset.idx);
@@ -151,7 +148,6 @@ export class UI {
 	  this._addEventListener(inp, 'change', listener);
 	});
 
-	// Color swatches
 	list.querySelectorAll('.legend-swatch').forEach(swatch => {
 	  const listener = () => {
 		const i = parseInt(swatch.dataset.idx);
@@ -165,7 +161,6 @@ export class UI {
 	  this._addEventListener(swatch, 'click', listener);
 	});
 
-	// Remove buttons
 	list.querySelectorAll('.legend-remove').forEach(btn => {
 	  const listener = (e) => {
 		const i = parseInt(e.target.dataset.idx);
@@ -311,8 +306,6 @@ export class UI {
 
 	  this.app.rebuild();
 	};
-
-	// Setup event listeners for inputs
 	[nameIn, scaleIn, posX, posY, posZ].forEach(input => {
 	  if (input) {
 		this._clearEventListeners(input);
@@ -321,7 +314,6 @@ export class UI {
 	  }
 	});
 
-	// Add child button
 	if (addBtn) {
 	  this._clearEventListeners(addBtn);
 	  
@@ -350,7 +342,6 @@ export class UI {
 	  this._addEventListener(addBtn, 'click', addListener);
 	}
 
-	// Delete button
 	if (delBtn) {
 	  this._clearEventListeners(delBtn);
 	  

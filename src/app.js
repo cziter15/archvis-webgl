@@ -29,9 +29,8 @@ export class App {
 
     this.ui.wireAll();
     this.loadSample();
-    
-    // Initialize title display
-    this.updateTitle();
+
+	this.updateTitle();
   }
 
   selectNode(id, sceneNode) {
@@ -45,7 +44,6 @@ export class App {
   deselectNode() {
     this.selectedNode = null;
     this.renderer.hideGizmo();
-    
     // Show empty edit panel when in edit mode but no node is selected
     if (this.ui.editMode) {
       this.ui.renderEmptyEditPanel();
@@ -65,8 +63,8 @@ export class App {
 
     this.ui.updateLegendDisplay();
     
-    // Update title display
-    this.updateTitle();
+
+	this.updateTitle();
     
     if (this.ui.editMode) {
       this.ui.renderLegendEditor();
@@ -77,7 +75,6 @@ export class App {
     const titleEl = document.getElementById('title');
     
     if (titleEl) {
-      // Use title from model if available, otherwise use default
       const titleText = this.model.uiInfo?.title || 'ARCHITECTURE VISUALIZATION';
       titleEl.textContent = titleText;
     }

@@ -34,10 +34,7 @@ export class ArchRenderer {
 	this.selectedId = null;
 	this.axisDragging = null;
 	
-	// Camera smoothness settings
 	this.smoothFactors = { drag: 0.95, zoom: 0.95, general: 0.95 };
-	
-	// Cache for text textures to avoid recreating them
 	this.textCache = new Map();
   }
 
@@ -105,7 +102,6 @@ export class ArchRenderer {
   }
 
   _createTextMesh(text, color) {
-	// Check cache first
 	const cacheKey = `${text}_${color}`;
 	if (this.textCache.has(cacheKey)) {
 	  return this.textCache.get(cacheKey).clone();
@@ -141,10 +137,7 @@ export class ArchRenderer {
 
 	const group = new THREE.Group();
 	group.add(back, text3d, frame);
-	
-	// Cache the group
 	this.textCache.set(cacheKey, group);
-	
 	return group.clone();
   }
 
@@ -202,7 +195,6 @@ export class ArchRenderer {
   }
 
   buildFromArch(model, prevSelectedId = null) {
-	// Dispose of existing objects
 	this.nodes.forEach(n => this.scene.remove(n));
 	this.lines.forEach(l => this.scene.remove(l));
 	this.nodes = [];
@@ -306,7 +298,6 @@ export class ArchRenderer {
   }
 
   update(frame) {
-	// Only update nodes that need rotation
 	this.nodes.forEach(n => {
 	  if (n.userData?.rotatingGroup) {
 		n.userData.rotatingGroup.rotation.y += n.userData.rotationSpeed;
@@ -314,7 +305,6 @@ export class ArchRenderer {
 	  }
 	});
 
-	// Batch update lines
 	this.lines.forEach((line, i) => {
 	  line.material.opacity = 0.3 + Math.sin(frame * 0.05 + i) * 0.2;
 
@@ -372,8 +362,6 @@ export class ArchRenderer {
 	  if (inputState.autoRotate) {
 		inputState.targetOrbitAngle += 0.001;
 	  }
-
-	  // Higher smoothness values = smoother camera movement
 	  inputState.currentOrbitAngle += (inputState.targetOrbitAngle - inputState.currentOrbitAngle) * (1 - this.smoothFactors.drag);
 	  inputState.currentOrbitRadius += (inputState.targetOrbitRadius - inputState.currentOrbitRadius) * (1 - this.smoothFactors.zoom);
 	  inputState.currentOrbitHeight += (inputState.targetOrbitHeight - inputState.currentOrbitHeight) * (1 - this.smoothFactors.drag);

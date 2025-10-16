@@ -43,7 +43,6 @@ export class InputHandler {
   }
 
   _init() {
-	// Add CSS for cursor and UI toggling
 	const style = document.createElement('style');
 	style.textContent = `
 	  .hide-cursor {
@@ -54,12 +53,8 @@ export class InputHandler {
 	  }
 	`;
 	document.head.appendChild(style);
-
-	// Keyboard events
 	document.addEventListener('keydown', this._handleKeyDown.bind(this));
 	document.addEventListener('keyup', this._handleKeyUp.bind(this));
-	
-	// Mouse events
 	document.addEventListener('mousedown', this._handleMouseDown.bind(this));
 	document.addEventListener('mouseup', this._handleMouseUp.bind(this));
 	document.addEventListener('mousemove', this._handleMouseMove.bind(this));
@@ -80,12 +75,10 @@ export class InputHandler {
 	if (e.key === 'Shift') this.keys.shift = true;
 	if (e.key === ' ') this.keys.space = true;
 	
-	// Toggle cursor visibility on Q key
 	if (key === 'q') {
 	  document.body.classList.toggle('hide-cursor');
 	}
 	
-	// Toggle UI visibility on U key
 	if (key === 'u') {
 	  document.body.classList.toggle('hide-ui');
 	  const uiToggle = document.getElementById('uiToggle');
