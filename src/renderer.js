@@ -345,6 +345,13 @@ export class ArchRenderer {
 		window.addEventListener('resize', onResize);
 		// store reference if needed later
 		this._onResize = onResize;
+			// handle orientation change on mobile devices (some browsers report new size slightly delayed)
+			const onOrientation = () => {
+				// delay a bit to allow browser to recalc layout
+				setTimeout(() => this.resize(window.innerWidth, window.innerHeight), 120);
+			};
+			window.addEventListener('orientationchange', onOrientation);
+			this._onOrientation = onOrientation;
 	}
 
 	startLoop(inputState, keys, mobile) {
