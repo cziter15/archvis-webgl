@@ -287,15 +287,6 @@ export class ArchRenderer {
 	this.axisDragging = null;
   }
 
-  updateNodeColor(sceneNode, color) {
-	const rg = sceneNode.userData?.rotatingGroup;
-	if (rg) {
-	  rg.children.forEach(c => {
-		if (c.material?.color) c.material.color.set(color);
-		if (c.isPointLight) c.color.set(color);
-	  });
-	}
-  }
 
   update(frame) {
 	this.nodes.forEach(n => {

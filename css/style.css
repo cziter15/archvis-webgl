@@ -3,7 +3,6 @@
 	padding: 0;
 	box-sizing: border-box;
 }
-
 body {
 	width: 100%;
 	height: 100vh;
@@ -12,23 +11,19 @@ body {
 	overflow: hidden;
 	cursor: default;
 }
-
 #canvas {
 	width: 100%;
 	height: 100%;
 	display: block;
 }
-
 .ui-container {
 	position: absolute;
 	top: 0;
 	left: 0;
 	right: 0;
 	bottom: 0;
-	/* allow child controls to receive pointer events; let clicks pass through to canvas by default */
 	pointer-events: none;
 }
-
 .message-display {
 	position: fixed;
 	bottom: 24px;
@@ -37,7 +32,6 @@ body {
 	z-index: 50;
 	pointer-events: none;
 }
-
 .message {
 	font-family: monospace;
 	color: #00ffff;
@@ -50,13 +44,11 @@ body {
 	pointer-events: auto;
 	cursor: pointer;
 }
-
 @keyframes fadeOut {
 	0% { opacity: 1; }
 	80% { opacity: 1; }
 	100% { opacity: 0; }
 }
-
 .title {
 	position: absolute;
 	top: 24px;
@@ -68,12 +60,10 @@ body {
 	animation: pulse 2s infinite;
 	pointer-events: none;
 }
-
 @keyframes pulse {
 	0%, 100% { opacity: 1; }
 	50% { opacity: 0.5; }
 }
-
 .left-panel {
 	position: absolute;
 	top: 24px;
@@ -83,38 +73,30 @@ body {
 	pointer-events: auto;
 	width: 256px;
 }
-
 .panel-box {
 	background: rgba(0, 0, 0, 0.7);
 	padding: 10px;
 	border: 1px solid #00ffff;
 	width: 100%;
 }
-
-/* avoid horizontal scrollbar caused by long flex children */
 .right-panel .panel-box {
 	overflow-x: hidden;
 }
-
-/* Prevent right panel overflow: limit height and allow internal scrolling */
 .right-panel .panel-box {
     max-height: calc(100vh - 80px);
     overflow-y: auto;
-    padding-right: 8px; /* allow space for scrollbar */
+    padding-right: 8px;
 }
-
 .legend {
 	margin-bottom: 12px;
 	padding-bottom: 12px;
 	border-bottom: 1px solid #00ffff;
 }
-
 .legend-title {
 	font-size: 12px;
 	color: #00ccff;
 	margin-bottom: 8px;
 }
-
 .legend-entry {
 	display: flex;
 	align-items: center;
@@ -122,20 +104,18 @@ body {
 	font-size: 12px;
 	margin-bottom: 4px;
 }
-
 .legend-color {
 	width: 12px;
 	height: 12px;
 	border: 1px solid rgba(255, 255, 255, 0.2);
 	border-radius: 2px;
+	box-sizing: border-box;
 }
-
 .controls-text {
 	font-size: 12px;
 	color: #00ccff;
 	line-height: 1.6;
 }
-
 .right-panel {
 	position: absolute;
 	top: 18px;
@@ -143,9 +123,8 @@ body {
 	color: #00ffff;
 	font-size: 12px;
 	pointer-events: all;
-	width: 260px; /* slightly wider so form fields fit */
+	width: 260px;
 }
-
 .button {
 	width: 100%;
 	color: #00ffff;
@@ -157,39 +136,31 @@ body {
 	text-align: center;
 	transition: all 0.2s;
 }
-
 .button:hover {
 	background: rgba(0, 255, 255, 0.2);
 	color: #ffffff;
 	border-color: #00ccff;
 }
-
-/* Edit button: visibility controlled by media queries below */
-
 .smoothness-control {
 	margin-top: 16px;
 	padding-top: 12px;
 	border-top: 1px solid #00ffff;
 }
-
 .smoothness-label {
 	font-size: 12px;
 	color: #00ccff;
 	margin-bottom: 8px;
 }
-
 .slider-container {
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	margin-bottom: 8px;
 }
-
 .slider-container span {
 	font-size: 12px;
 	color: #ffffff;
 }
-
 input[type="range"] {
 	flex: 1;
 	height: 8px;
@@ -199,7 +170,6 @@ input[type="range"] {
 	-webkit-appearance: none;
 	cursor: pointer;
 }
-
 input[type="range"]::-webkit-slider-thumb {
 	appearance: none;
 	-webkit-appearance: none;
@@ -210,7 +180,6 @@ input[type="range"]::-webkit-slider-thumb {
 	cursor: pointer;
 	border: 1px solid #ffffff;
 }
-
 input[type="range"]::-moz-range-thumb {
 	width: 16px;
 	height: 16px;
@@ -219,7 +188,6 @@ input[type="range"]::-moz-range-thumb {
 	cursor: pointer;
 	border: 1px solid #ffffff;
 }
-
 .author-info {
 	margin-top: 8px; padding-top: 8px;
 	border-top: 1px solid #00ffff;
@@ -228,25 +196,20 @@ input[type="range"]::-moz-range-thumb {
 	text-align: center;
 	margin-top: 14px;
 }
-
 .author-info a {
 	color: #ffffff;
 	text-decoration: none;
 }
-
 .author-info a:hover {
 	text-decoration: underline;
 	color: #ffffff;
 }
-
 .author-info a:visited,
 .author-info a:active,
 .author-info a:focus {
 	color: #ffffff;
 	text-decoration: none;
 }
-
-/* Legend editor */
 .legend-editor {
 	margin-top: 12px;
 	border-top: 1px dashed #00ffff;
@@ -256,67 +219,36 @@ input[type="range"]::-moz-range-thumb {
 	max-height: 40vh;
 	overflow-y: auto;
 }
-
-/* Utility helpers moved from inline attributes */
 .hidden { display: none; }
-
-/* Divider used inside controls block */
 .controls-divider { margin-top: 8px; padding-top: 8px; border-top: 1px solid #00ffff; }
-
-/* Small highlighted hotkey span */
 .hotkey { color: #ffff00; }
-
-/* Reusable select style for assign legend */
 .assign-legend-select { flex: 1; padding: 6px; background: rgba(0,0,0,0.6); border: 1px solid #00ffff; color: #00ffff; }
-
-/* Message shown when no node selected in editor */
 .empty-edit-msg { color: #00ffff; text-align: center; padding: 20px; font-size: 12px; }
-
-/* Cursor helper for dragging gizmo */
 .grabbing { cursor: grabbing !important; }
-
-/* Toggleable helpers previously injected from JS */
 .hide-cursor { cursor: none; }
 .hide-ui .ui-container { display: none !important; }
-
-/* Reusable flex row used around selects and similar */
 .flex-row { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
-
-/* Default large legend swatch (28px) used in editors */
 .legend-swatch { width: 28px; height: 28px; border: 1px solid #00ffff; background: #00ffff; box-sizing: border-box; cursor: pointer; }
-
-/* Small legend color square used in list */
-.legend-color { width: 12px; height: 12px; border: 1px solid rgba(255,255,255,0.1); box-sizing: border-box; }
-
-/* Legend list name used in editor / display */
 .legend-name { flex: 1; color: #00ffff; font-size: 12px; }
-
-/* Ensure legend entries are stacked vertically (tighter spacing) */
 #legendList {
 	display: flex;
 	flex-direction: column;
-	gap: 2px; /* match node editor vertical spacing */
+	gap: 2px;
 }
-
-/* Allow inputs inside legend rows to shrink instead of forcing horizontal scroll */
 .legend-editor .legend-row input[type="text"],
 .legend-editor .legend-row input[type="color"],
 .legend-editor .legend-row button {
 	min-width: 0;
 }
-
-/* New-legend controls (Name + color + ADD) — make the name input flexible and limit widths */
 .legend-editor input#newLegendName {
 	flex: 1 1 auto;
 	min-width: 0;
-	/* allow full width within grid cell */
 	width: 100%;
 	box-sizing: border-box;
 	padding:4px;
 	height:28px;
 	font-size:12px;
 }
-
 .legend-editor input#newLegendName::placeholder {
 	color: rgba(255,255,255,0.6);
 }
@@ -341,11 +273,11 @@ input[type="range"]::-moz-range-thumb {
 	grid-template-columns: 1fr 28px 60px;
 	gap: 8px;
 	align-items: center;
-	margin-bottom: 2px; /* match node editor spacing */
+	margin-bottom: 2px;
 }
 .legend-editor .legend-row input[type="text"] {
 	width: 100%;
-	padding:4px; /* match .edit-row inputs */
+	padding:4px;
 	height: 28px;
 	box-sizing: border-box;
 	background: rgba(0,0,0,0.6);
@@ -372,19 +304,15 @@ input[type="range"]::-moz-range-thumb {
 	align-items: center;
 	justify-content: center;
 	line-height: 28px;
-	margin: 0; /* override global .button margin */
+	margin: 0;
 }
-
-/* Ensure children of legend-row use consistent box-sizing and baseline */
 .legend-editor .legend-row > * {
 	box-sizing: border-box;
 	vertical-align: middle;
 }
-
 .hidden-input {
 	display: none;
 }
-
 .ui-toggle {
 	position: absolute;
 	bottom: 24px;
@@ -397,21 +325,17 @@ input[type="range"]::-moz-range-thumb {
 	pointer-events: auto;
 	display: none;
 }
-
 .ui-toggle.visible {
 	display: block;
 }
-
-/* Mobile controls */
 .mobile-controls {
 	position: absolute;
 	left: 0;
 	right: 0;
 	bottom: 18px;
 	top: 0;
-	pointer-events: none; /* container itself not interactive, children are */
+	pointer-events: none;
 }
-
 .stick {
 	width: 120px;
 	height: 120px;
@@ -425,7 +349,6 @@ input[type="range"]::-moz-range-thumb {
 	align-items: center;
 	justify-content: center;
 }
-
 .stick-knob {
 	width: 44px;
 	height: 44px;
@@ -433,10 +356,8 @@ input[type="range"]::-moz-range-thumb {
 	background: rgba(0,255,255,0.9);
 	transform: translate(0,0);
 }
-
 .left-stick { left: 18px; bottom: 18px; }
 .right-stick { right: 18px; bottom: 18px; }
-
 .action-buttons {
 	position: absolute;
 	right: 18px;
@@ -446,7 +367,6 @@ input[type="range"]::-moz-range-thumb {
 	gap: 8px;
 	pointer-events: auto;
 }
-
 .action-btn {
 	width: 56px;
 	height: 40px;
@@ -460,52 +380,22 @@ input[type="range"]::-moz-range-thumb {
 	justify-content: center;
 	touch-action: manipulation;
 }
-
-/* Hide mobile controls on desktop; show on small screens */
 @media (min-width: 900px) {
 	.mobile-controls { display: none; }
 }
-
 @media (max-width: 899px) {
 	.ui-container .left-panel, .ui-container .right-panel, .title { display: none; }
 	.mobile-controls { display: block; }
 }
-
-/* Desktop-only: ensure edit button and panels show */
 @media (min-width: 900px) {
 	.button#editBtn { display: block; }
-	/* edit overlay */
-	.edit-overlay {
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		pointer-events: none; /* individual controls will enable pointer-events when active */
-	}
-
-	.selected-node-indicator {
-		width: 48px;
-		height: 48px;
-		border: 2px dashed rgba(255,255,0,0.9);
-		border-radius: 6px;
-		position: absolute;
-		transform: translate(-50%, -50%);
-		pointer-events: none;
-		z-index: 80;
-	}
-
 	.edit-row { display: flex; gap: 6px; align-items: center; margin: 2px 0; }
 	.edit-row label { width: 48px; color: #00ffff; font-size: 11px; }
 	.edit-row input[type="text"], .edit-row input[type="number"], .edit-row input[type="color"] { flex: 1; padding: 4px; background: rgba(0,0,0,0.6); border: 1px solid #00ffff; color: #00ffff; font-size: 12px; }
-
 	.edit-actions { display:flex; gap:6px; margin-top:8px; margin-bottom:0; }
-	/* avoid global button bottom margin inside the compact edit panel */
 	.button.small { padding: 4px 6px; font-size: 11px; }
 	.button.danger { border-color: #ff5555; color: #ff8888; }
 }
-
-/* Mobile action menu */
 .mobile-menu {
 	position: absolute;
 	left: 50%;
@@ -530,7 +420,6 @@ input[type="range"]::-moz-range-thumb {
 	justify-content: center;
 	touch-action: manipulation;
 }
-
 @media (min-width: 900px) {
 	.mobile-menu { display: none; }
 }
