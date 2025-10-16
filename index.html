@@ -10,7 +10,6 @@
 	<title>ArchVis WebGL</title>
 	<link rel="icon" href="/cog.svg" type="image/svg+xml">
 	<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 	<link rel="stylesheet" href="./css/style.css">
 </head>
 <body>
@@ -35,8 +34,8 @@
 						<span style="color: #ffff00;">U</span> - TOGGLE UI<br>
 						<span style="color: #ffff00;">Q</span> - TOGGLE CURSOR
 					</div>
-					<div class="author-info">© <a href="https://github.com/cziter15" target="_blank">K. STREHLAU</a></div>
 				</div>
+				<div class="author-info">© <a href="https://github.com/cziter15" target="_blank">K. STREHLAU</a></div>
 			</div>
 		</div>
 		<div class="right-panel" id="rightPanel">
@@ -66,20 +65,11 @@
 						<button class="button small" id="addLegendBtn">ADD</button>
 					</div>
 				</div>
-	
-				<div style="border-top:1px dashed rgba(0,255,255,0.12);margin-top:8px;padding-top:4px;">
-					<div id="nodeEditorHeader" style="font-size:12px;color:#00ccff;margin:4px 0 6px 0;display:none;">NODE EDITOR</div>
-				</div>
 
-				<!-- Edit panel (desktop only) -->
-				<div class="edit-panel" id="editPanel" aria-hidden="true" style="display:none;">
+				<div class="legend-editor" id="editPanel" aria-hidden="true" style="display:none;">
+					<div class="legend-title" style="font-size:12px;color:#00ccff;">NODE EDITOR</div>
 					<div id="editContent">
 						<div class="edit-row"><label>Name</label><input type="text" id="editName"></div>
-						<!-- Color removed: node color is derived from legend category -->
-						<!-- EDIT LEGEND button removed from node editor (legend editor has its own controls) -->
-						<div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
-							<select id="assignLegendSelect" style="flex:1;padding:6px;background:rgba(0,0,0,0.6);border:1px solid #00ffff;color:#00ffff;"></select>
-						</div>
 						<div class="edit-row"><label>Scale</label><input type="number" id="editScale" step="0.1" min="0.1"></div>
 						<div class="edit-row"><label>Pos X</label><input type="number" id="editPosX" step="0.1"></div>
 						<div class="edit-row"><label>Pos Y</label><input type="number" id="editPosY" step="0.1"></div>

@@ -1,8 +1,15 @@
-import MainApp from './app.js';
+import { App } from './app.js';
+/*
+ *	Copyright (c) 2025-2026, Krzysztof Strehlau
+ *
+ *	This file is a part of the ArchVis WebGL utility.
+ *	All licensing information can be found inside LICENSE.md file.
+ *
+ *	https://github.com/cziter15/archvis-webgl/blob/main/LICENSE
+ */
 
-// Minimal bootstrap: MainApp handles creating renderer, input, UI and starting the loop.
 document.addEventListener('DOMContentLoaded', () => {
-	const app = new MainApp();
-	window.mainApp = app;
-	try { app.init(); } catch (e) { console.warn('MainApp.init failed', e); }
+  const app = new App();
+  window.mainApp = app;
+  app.init();
 });

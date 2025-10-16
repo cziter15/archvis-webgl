@@ -1,657 +1,565 @@
-// UI module: DOM-only helpers and editors
-// Initialize with dependencies from main.js via init(deps)
-import { findNodeById } from './archmodel.js';
-import { ArchitectureXML } from './serializer.js';
-let D = {
-  getArchitecture: null,
-  setArchitecture: null,
-  getSelectedId: null,
-  getSelectedNode: null,
-  setSelectedId: null,
-  setSelectedNode: null,
-  getEditMode: null,
-  setEditMode: null,
-  findNodeById: null,
-  rebuildScene: null,
-  updateSceneNodeColor: null,
-  archRenderer: null
-};
+/*
+ *	Copyright (c) 2025-2026, Krzysztof Strehlau
+ *
+ *	This file is a part of the ArchVis WebGL utility.
+ *	All licensing information can be found inside LICENSE.md file.
+ *
+ *	https://github.com/cziter15/archvis-webgl/blob/main/LICENSE
+ */
 
-// internal UI-owned edit mode flag
-let uiEditMode = false;
+import { ArchModel } from './model.js';
 
-export function getEditMode() {
-  return !!uiEditMode;
-}
-
-export function setEditMode(v) {
-  uiEditMode = !!v;
-  // keep MainApp in sync if provided
-  try { if (D && D.app) D.app.editMode = uiEditMode; } catch(e) {}
-  // apply DOM changes: mirror logic that was originally in wireUiHandlers
-  if (uiEditMode) {
-    try { renderLegendEditor(); renderLegendAssignSelect(); } catch(e) {}
-    const nodeHeader = document.getElementById('nodeEditorHeader'); if (nodeHeader) nodeHeader.style.display = '';
-    const editPanel = document.getElementById('editPanel'); if (editPanel) { editPanel.style.display = ''; editPanel.setAttribute('aria-hidden','false'); }
-    ensureSelectedIndicator(); ensureRenameInput();
-    addMessage('Edit mode enabled: use gizmo arrows to move nodes, double-click to rename.');
-    const legendEditor = document.getElementById('legendEditor'); if (legendEditor) legendEditor.style.display = '';
-    // hide primary actions while editing
-    ['saveBtn','loadBtn','sampleBtn'].forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      try { el.dataset._wasHiddenByEdit = el.style.display === 'none' ? '1' : ''; } catch(e){}
-      el.style.display = 'none';
-    });
-    const smooth = document.querySelector('.smoothness-control'); if (smooth) { try { smooth.dataset._wasHiddenByEdit = smooth.style.display === 'none' ? '1' : ''; } catch(e){} smooth.style.display = 'none'; }
-  } else {
-    const nodeHeader = document.getElementById('nodeEditorHeader'); if (nodeHeader) nodeHeader.style.display = 'none';
-    const editPanel = document.getElementById('editPanel'); if (editPanel) { editPanel.style.display = 'none'; editPanel.setAttribute('aria-hidden','true'); }
-    const selInd = window.__selectedIndicatorElement; if (selInd) selInd.style.display = 'none';
-    const renameIn = window.__renameInputEl; if (renameIn) renameIn.style.display = 'none';
-    try { D.archRenderer && D.archRenderer.hideGizmo(); } catch (e) {}
-    addMessage('Edit mode disabled. Auto-rotate will resume after inactivity.');
-    const legendEditor = document.getElementById('legendEditor'); if (legendEditor) legendEditor.style.display = 'none';
-    // restore primary actions visibility
-    ['saveBtn','loadBtn','sampleBtn'].forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      try {
-        if (el.dataset && el.dataset._wasHiddenByEdit) { delete el.dataset._wasHiddenByEdit; }
-        else { el.style.display = ''; }
-      } catch(e) { el.style.display = ''; }
-    });
-    const smooth = document.querySelector('.smoothness-control'); if (smooth) { try { if (smooth.dataset && smooth.dataset._wasHiddenByEdit) { delete smooth.dataset._wasHiddenByEdit; } else { smooth.style.display = ''; } } catch(e) { smooth.style.display = ''; } }
-  }
-  // update edit button text/state
-  const btn = document.getElementById('editBtn'); if (btn) { btn.classList.toggle('active', uiEditMode); btn.textContent = uiEditMode ? '✖️ EXIT EDITOR' : '✏️ EDIT'; }
+export class UI {
+  constructor(app) {
+	this.app = app;
+	this.editMode = false;
+	this.eventListeners = new Map();
   }
 
-export function init(deps) {
-  D = Object.assign(D, deps || {});
-  // ensure basic UI wiring runs
-  try { renderLegendAssignSelect(); } catch (e) {}
-  try { renderLegendEditor(); } catch (e) {}
-  // attach handlers for edit workflow: wire top-level buttons and immediate edit inputs
-  try { attachImmediateEditHandlers(); } catch (e) { console.warn('attachImmediateEditHandlers failed', e); }
-  try { wireUiHandlers(); } catch (e) { console.warn('wireUiHandlers failed', e); }
-  // wire internal edit-mode accessors into D
-  D.getEditMode = getEditMode;
-  D.setEditMode = setEditMode;
-}
+  setEditMode(active) {
+	this.editMode = active;
+	const btn = document.getElementById('editBtn');
+	if (btn) {
+	  btn.classList.toggle('active', active);
+	  btn.textContent = active ? '✖ EXIT EDITOR' : '✏️ EDIT';
+	}
 
-// Simple UI message helper
-export function addMessage(text) {
-  try {
-    const messageDisplay = document.getElementById('messageDisplay');
-    if (!messageDisplay) return;
-    const msg = document.createElement('div');
-    msg.className = 'message';
-    msg.textContent = text;
-    messageDisplay.appendChild(msg);
-    setTimeout(() => { try { messageDisplay.removeChild(msg); } catch (e) {} }, 5000);
-  } catch (e) {
-    console.warn('addMessage failed', e);
-  }
-}
+	const nodeHeader = document.getElementById('nodeEditorHeader');
+	const editPanel = document.getElementById('editPanel');
+	const legendEditor = document.getElementById('legendEditor');
+	const smooth = document.querySelector('.smoothness-control');
 
-// Set panels visible
-export function setPanelsVisible(visible) {
-  const rp = document.getElementById('rightPanel');
-  const lp = document.getElementById('leftPanel');
-  if (rp) rp.style.display = visible ? 'block' : 'none';
-  if (lp) lp.style.display = visible ? 'block' : 'none';
-}
-
-// Left panel legend display
-export function updateLeftLegendDisplay() {
-  const items = document.getElementById('legendItems');
-  const container = document.getElementById('legendContainer');
-  if (!items) return;
-  items.innerHTML = '';
-  const arch = D.getArchitecture ? D.getArchitecture() : { legend: [] };
-  const legend = arch.legend || [];
-  legend.forEach((entry) => {
-    const row = document.createElement('div');
-    row.style.display = 'flex';
-    row.style.alignItems = 'center';
-    row.style.gap = '8px';
-    row.style.marginBottom = '6px';
-    const sw = document.createElement('div');
-    sw.style.width = '12px';
-    sw.style.height = '12px';
-    sw.style.background = entry.color || '#00ffff';
-    sw.style.border = '1px solid rgba(255,255,255,0.1)';
-    sw.style.boxSizing = 'border-box';
-    const name = document.createElement('div');
-    name.style.color = '#00ffff';
-    name.style.fontSize = '12px';
-    name.textContent = entry.name || '';
-    row.appendChild(sw);
-    row.appendChild(name);
-    items.appendChild(row);
-  });
-  if (container) container.style.display = legend.length ? '' : 'none';
-}
-
-// Legend editor (dom building)
-export function renderLegendEditor() {
-  const list = document.getElementById('legendList');
-  if (!list) return;
-  list.innerHTML = '';
-  const arch = D.getArchitecture ? D.getArchitecture() : { legend: [] };
-  const legend = arch.legend || [];
-  const editMode = D.getEditMode ? D.getEditMode() : false;
-  legend.forEach((entry, idx) => {
-    // ensure each legend entry has an id
-    if (!entry.id) entry.id = (Math.random().toString(36).slice(2,9));
-    const row = document.createElement('div');
-    row.className = 'legend-row';
-    if (editMode) {
-      row.innerHTML = `
-        <input type="text" class="legend-name" data-idx="${idx}" value="${entry.name}" />
-        <div class="legend-swatch" data-idx="${idx}" title="Click to change color" style="width:28px;height:28px;border:1px solid #00ffff;background:${entry.color};box-sizing:border-box;cursor:pointer;"></div>
-        <button class="button small legend-remove" data-idx="${idx}">DEL</button>
-      `;
-    } else {
-      row.innerHTML = `
-        <div style="flex:1;color:#00ffff;">${entry.name}</div>
-        <div style="width:12px;height:12px;background:${entry.color};border:1px solid rgba(255,255,255,0.1);"></div>
-      `;
-    }
-    list.appendChild(row);
-  });
-
-  if (editMode) {
-    list.querySelectorAll('.legend-name').forEach(inp => {
-      inp.addEventListener('change', (e) => {
-        const i = parseInt(e.target.dataset.idx, 10);
-        const arch2 = D.getArchitecture ? D.getArchitecture() : { legend: [] };
-        if (!arch2.legend[i]) return;
-        arch2.legend[i].name = e.target.value;
-        // notify main to update
-        try { updateLeftLegendDisplay(); } catch (e) {}
-        try { renderLegendAssignSelect(); } catch (e) {}
-      });
-    });
-    list.querySelectorAll('.legend-swatch').forEach(swatch => {
-      swatch.addEventListener('click', (e) => {
-        const i = parseInt(swatch.dataset.idx, 10);
-        const arch2 = D.getArchitecture ? D.getArchitecture() : { legend: [] };
-        if (isNaN(i) || !arch2.legend[i]) return;
-        const current = arch2.legend[i].color || '#00ffff';
-        openColorPickerNear(swatch, current, (val) => {
-          arch2.legend[i].color = val;
-          try { updateLeftLegendDisplay(); } catch (e) {}
-          try { D.rebuildScene && D.rebuildScene(); } catch (e) {}
-        });
-      });
-    });
-    list.querySelectorAll('.legend-remove').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const i = parseInt(e.target.dataset.idx, 10);
-        const arch3 = D.getArchitecture ? D.getArchitecture() : { legend: [] };
-        if (i >= 0 && i < arch3.legend.length) {
-          arch3.legend.splice(i, 1);
-          try { updateLeftLegendDisplay(); } catch (e) {}
-          try { renderLegendAssignSelect(); } catch (e) {}
-        }
-      });
-    });
-  }
-}
-
-// wire top-level legend add controls (newLegendName, newLegendSwatch, addLegendBtn)
-function _wireLegendAddControls() {
-  try {
-    const nameEl = document.getElementById('newLegendName');
-    const swatch = document.getElementById('newLegendSwatch');
-    const addBtn = document.getElementById('addLegendBtn');
-    if (!nameEl || !swatch || !addBtn) return;
-    // color picker on swatch
-    swatch.addEventListener('click', (e) => {
-      const current = swatch.style.background || '#00ffff';
-      openColorPickerNear(swatch, current, (val) => {
-        swatch.style.background = val;
-      });
-    });
-    addBtn.addEventListener('click', (e) => {
-      const name = (nameEl.value || '').trim();
-      if (!name) { addMessage('Legend name required'); return; }
-      const color = swatch.style.background || '#00ffff';
-      const arch = D.getArchitecture ? D.getArchitecture() : null;
-      if (!arch) return;
-      if (!arch.legend) arch.legend = [];
-      const id = (Math.random().toString(36).slice(2,9));
-      arch.legend.push({ id, name, color });
-      try { updateLeftLegendDisplay(); } catch (e) {}
-      try { renderLegendEditor(); } catch (e) {}
-      try { renderLegendAssignSelect(); } catch (e) {}
-      try { D.rebuildScene && D.rebuildScene(); } catch (e) {}
-      nameEl.value = '';
-    });
-  } catch (err) { console.warn('wireLegendAddControls failed', err); }
-}
-
-// open color input
-export function openColorPickerNear(anchorEl, initialColor, onPick) {
-  try {
-    const rect = anchorEl.getBoundingClientRect();
-    const input = document.createElement('input');
-    input.type = 'color';
-    input.value = initialColor || '#00ffff';
-    input.style.position = 'absolute';
-    input.style.left = (rect.left + window.scrollX) + 'px';
-    input.style.top = (rect.top + window.scrollY) + 'px';
-    input.style.width = (rect.width) + 'px';
-    input.style.height = (rect.height) + 'px';
-    input.style.zIndex = 100000;
-    input.style.border = 'none';
-    input.style.padding = '0';
-    input.style.margin = '0';
-    input.style.background = 'transparent';
-    input.style.opacity = '0.01';
-    document.body.appendChild(input);
-
-    let cleaned = false;
-    const cleanup = () => {
-      if (cleaned) return;
-      cleaned = true;
-      try { input.remove(); } catch (e) {}
-      try { document.removeEventListener('mousedown', onDocClick, true); } catch(e) {}
-      try { clearTimeout(timeoutId); } catch(e) {}
-    };
-    const doPick = (val) => { try { if (onPick) onPick(val); } catch (e) { console.warn('onPick handler error', e); } };
-    input.addEventListener('input', (e) => { doPick(e.target.value); });
-    input.addEventListener('change', (e) => { doPick(e.target.value); cleanup(); });
-    input.addEventListener('blur', () => { setTimeout(cleanup, 200); });
-    const onDocClick = (ev) => { if (!input.contains(ev.target)) cleanup(); };
-    document.addEventListener('mousedown', onDocClick, true);
-    const timeoutId = setTimeout(() => { cleanup(); }, 6000);
-    input.click();
-  } catch (err) {
-    console.warn('color picker fallback', err);
-  }
-}
-
-// assign select
-export function renderLegendAssignSelect() {
-  const sel = document.getElementById('assignLegendSelect');
-  if (!sel) return;
-  sel.innerHTML = '';
-  const blank = document.createElement('option');
-  blank.value = '';
-  blank.textContent = '-- none --';
-  sel.appendChild(blank);
-  const arch = D.getArchitecture ? D.getArchitecture() : { legend: [] };
-  (arch.legend || []).forEach((entry) => {
-    const opt = document.createElement('option');
-    opt.value = entry.id || entry.name;
-    opt.textContent = entry.name;
-    sel.appendChild(opt);
-  });
-  sel.onchange = function () {
-    try {
-      // resolve selected node id (try D.getSelectedId, fallback to D.getSelectedNode)
-      let id = null;
-      if (D.getSelectedId) id = D.getSelectedId();
-      if (!id && D.getSelectedNode) {
-        const sn = D.getSelectedNode();
-        if (sn && sn.userData && sn.userData.id) id = sn.userData.id;
-      }
-      if (!id) { console.warn('assignLegendSelect: no selected id'); return; }
-      const sceneNode = D.getSelectedNode ? D.getSelectedNode() : (D.archRenderer ? D.archRenderer.getSceneNodeById(id) : null);
-      const selectedLegendId = sel.value === '' ? '' : sel.value;
-      const arch = D.getArchitecture ? D.getArchitecture() : null;
-      let archNode = D.findNodeById && arch ? D.findNodeById(arch.root, id) : null;
-      if (!archNode) {
-        // fallback: try to match by node name (best-effort)
-        const sceneNodeName = sceneNode && sceneNode.userData ? sceneNode.userData.name : null;
-        if (sceneNodeName) {
-          function findByName(node, name) {
-            if (!node) return null;
-            if (node.name === name) return node;
-            if (node.children) {
-              for (const c of node.children) {
-                const f = findByName(c, name);
-                if (f) return f;
-              }
-            }
-            return null;
-          }
-          archNode = findByName(arch.root, sceneNodeName);
-        }
-      }
-      if (!archNode) { console.warn('assignLegendSelect: arch node not found', id); return; }
-      if (!selectedLegendId) delete archNode.category; else archNode.category = selectedLegendId;
-      // refresh scene and UI so change is visible immediately
-      try { D.rebuildScene && D.rebuildScene(); } catch (e) { console.warn('rebuildScene failed', e); }
-      try { updateLeftLegendDisplay(); } catch (e) {}
-      try { renderLegendAssignSelect(); } catch (e) {}
-      try { if (typeof populateEditPanelForSelected === 'function') populateEditPanelForSelected(); } catch (e) {}
-      try { updateSelectedIndicatorPosition(); } catch (e) {}
-    } catch (err) { console.error('assignLegendSelect onchange error', err); }
-  };
-}
-
-export function updateLegend() {
-  try { updateLeftLegendDisplay(); } catch (e) { console.warn(e); }
-  try { renderLegendEditor(); } catch (e) {}
-  try { renderLegendAssignSelect(); } catch (e) {}
-}
-
-export function updateTitle() {
-  const titleEl = document.getElementById('title');
-  const arch = D.getArchitecture ? D.getArchitecture() : {};
-  const t = (arch && arch.uiInfo && arch.uiInfo.title) ? arch.uiInfo.title : (arch && arch.root && arch.root.name) ? arch.root.name : 'ARCHITECTURE VISUALIZATION';
-  if (titleEl) titleEl.textContent = t;
-  try { document.title = t; } catch (e) {}
-}
-
-// Populate edit panel with selected node data
-export function populateEditPanelForSelected() {
-  const panel = document.getElementById('editPanel');
-  if (!panel) return;
-  // never show edit panel when not in edit mode
-  if (!D.getEditMode()) {
-    panel.style.display = 'none';
-    panel.setAttribute('aria-hidden', 'true');
-    return;
-  }
-  const editContent = document.getElementById('editContent');
-  // resolve transient scene node from selectedId if needed
-  const selectedNode = D.getSelectedNode ? D.getSelectedNode() : (D.getSelectedId() ? D.archRenderer.getSceneNodeById(D.getSelectedId()) : null);
-  if (!selectedNode) {
-    // show friendly message
-    panel.style.display = 'block';
-    panel.setAttribute('aria-hidden', 'false');
-    if (editContent) {
-      editContent.innerHTML = '<div style="color:#00ffff;font-size:12px;padding:6px;">Select a node to edit it</div>';
-    }
-    return;
-  }
-  // find architecture node
-  const arch = D.getArchitecture();
-  const archNode = findNodeById(arch.root, selectedNode.userData.id) || (arch.root.name === selectedNode.userData.name ? arch.root : null);
-  // fallback: try matching by name
-  const nameMatch = !archNode && (arch.root.name === selectedNode.userData.name ? arch.root : null);
-
-  panel.style.display = 'block';
-  panel.setAttribute('aria-hidden', 'false');
-  const nameIn = document.getElementById('editName');
-  const scaleIn = document.getElementById('editScale');
-  const posX = document.getElementById('editPosX');
-  const posY = document.getElementById('editPosY');
-  const posZ = document.getElementById('editPosZ');
-
-  const source = archNode || nameMatch ? (archNode || nameMatch) : null;
-  if (source) {
-    // ensure the full form is present in editContent (in case we previously showed the message)
-    const editContent = document.getElementById('editContent');
-    if (editContent && editContent.querySelector('#editName') == null) {
-      // rebuild inner HTML to include inputs (simple approach)
-      editContent.innerHTML = `
-        <div class="edit-row"><label>Name</label><input type="text" id="editName"></div>
-        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;"><select id="assignLegendSelect" style="flex:1;padding:6px;background:rgba(0,0,0,0.6);border:1px solid #00ffff;color:#00ffff;"></select></div>
-        <div class="edit-row"><label>Scale</label><input type="number" id="editScale" step="0.1" min="0.1"></div>
-        <div class="edit-row"><label>Pos X</label><input type="number" id="editPosX" step="0.1"></div>
-        <div class="edit-row"><label>Pos Y</label><input type="number" id="editPosY" step="0.1"></div>
-        <div class="edit-row"><label>Pos Z</label><input type="number" id="editPosZ" step="0.1"></div>
-        <div class="edit-actions"><button class="button small" id="addChildBtn">+ CHILD</button><button class="button small danger" id="deleteNodeBtn">DELETE</button></div>
-      `;
-      // re-wire the add/delete handlers (they already exist on document load, so no-op if present)
-      try { attachImmediateEditHandlers(); } catch (e) { console.warn('attachImmediateEditHandlers failed', e); }
-    }
-    // now set values
-    const nameIn2 = document.getElementById('editName');
-    const scaleIn2 = document.getElementById('editScale');
-    const posX2 = document.getElementById('editPosX');
-    const posY2 = document.getElementById('editPosY');
-    const posZ2 = document.getElementById('editPosZ');
-    if (nameIn2) nameIn2.value = source.name || selectedNode.userData.name || '';
-    if (scaleIn2) scaleIn2.value = source.scale || 1;
-    if (posX2) posX2.value = (selectedNode.position.x || 0).toFixed(2);
-    if (posY2) posY2.value = (selectedNode.position.y || 0).toFixed(2);
-    if (posZ2) posZ2.value = (selectedNode.position.z || 0).toFixed(2);
-  } else {
-    // fallback: ensure base inputs exist and populate them
-    if (nameIn) nameIn.value = selectedNode.userData.name || '';
-    if (scaleIn) scaleIn.value = 1;
-    if (posX) posX.value = (selectedNode.position.x || 0).toFixed(2);
-    if (posY) posY.value = (selectedNode.position.y || 0).toFixed(2);
-    if (posZ) posZ.value = (selectedNode.position.z || 0).toFixed(2);
+	if (active) {
+	  if (nodeHeader) nodeHeader.style.display = '';
+	  if (editPanel) { editPanel.style.display = ''; editPanel.setAttribute('aria-hidden', 'false'); }
+	  if (legendEditor) legendEditor.style.display = '';
+	  if (smooth) smooth.style.display = 'none';
+	  this.addMessage('Edit mode: use arrows to move nodes');
+	  
+	  // Deselect any selected node when entering edit mode
+	  this.app.deselectNode();
+	  this.renderLegendEditor();
+	  this.renderEmptyEditPanel();
+	} else {
+	  if (nodeHeader) nodeHeader.style.display = 'none';
+	  if (editPanel) { editPanel.style.display = 'none'; editPanel.setAttribute('aria-hidden', 'true'); }
+	  if (legendEditor) legendEditor.style.display = 'none';
+	  if (smooth) smooth.style.display = '';
+	  this._setButtonsVisibility(['saveBtn', 'loadBtn', 'sampleBtn'], true);
+	  this.addMessage('Edit mode disabled');
+	}
   }
 
-  // update legend assign select options and select current category if any
-  try { renderLegendAssignSelect(); } catch (e) { /* ignore */ }
-  const sel = document.getElementById('assignLegendSelect');
-  if (sel) {
-    // determine current category for this selected node from architecture (category stores legend id)
-    const archNodeForCategory = findNodeById(arch.root, selectedNode.userData.id);
-    let current = '';
-    if (archNodeForCategory && archNodeForCategory.category) {
-      current = archNodeForCategory.category;
-    }
-    // if there's no category but an explicit color on model, try to map it to a legend entry
-    if ((!current || current === '') && archNodeForCategory && archNodeForCategory.color) {
-      const colorVal = (archNodeForCategory.color || '').toLowerCase();
-      const found = (arch.legend || []).find(e => (e.color || '').toLowerCase() === colorVal);
-      if (found) {
-        try { archNodeForCategory.category = found.id; delete archNodeForCategory.color; } catch (e) {}
-        current = found.id;
-        try { renderLegendAssignSelect(); } catch (e) {}
-        try { D.rebuildScene && D.rebuildScene(); } catch (e) {}
-      }
-    }
-    // If current is numeric index (legacy), try to map to legend id
-    if (current !== '') {
-      const maybeIndex = parseInt(current, 10);
-      if (!isNaN(maybeIndex) && arch.legend && arch.legend[maybeIndex]) {
-        current = arch.legend[maybeIndex].id;
-      } else {
-        // ensure the id exists; if not, try to find by name
-        const foundById = (arch.legend || []).find(e => e.id === current);
-        if (!foundById) {
-          const foundByName = (arch.legend || []).find(e => e.name === current);
-          if (foundByName) current = foundByName.id;
-          else current = '';
-        }
-      }
-    }
-    sel.value = current || '';
+  _setButtonsVisibility(ids, show) {
+	ids.forEach(id => {
+	  const el = document.getElementById(id);
+	  if (!el) return;
+	  el.style.display = show ? '' : 'none';
+	});
+  }
+
+  addMessage(text) {
+	const display = document.getElementById('messageDisplay');
+	if (!display) return;
+	const msg = document.createElement('div');
+	msg.className = 'message';
+	msg.textContent = text;
+	display.appendChild(msg);
+	setTimeout(() => display.removeChild(msg), 5000);
+  }
+
+  updateLegendDisplay() {
+	const container = document.getElementById('legendItems');
+	if (!container) return;
+	
+	container.innerHTML = '';
+	
+	if (!this.app.model.legend) {
+	  this.app.model.legend = [];
+	}
+	
+	const legendContainer = document.getElementById('legendContainer');
+	if (legendContainer && this.app.model.legend.length > 0) {
+	  legendContainer.style.display = 'block';
+	}
+	
+	(this.app.model.legend || []).forEach(entry => {
+	  const row = document.createElement('div');
+	  row.className = 'legend-entry';
+	  
+	  const swatch = document.createElement('div');
+	  swatch.className = 'legend-color';
+	  swatch.style.backgroundColor = entry.color;
+	  
+	  const name = document.createElement('div');
+	  name.textContent = entry.name;
+
+	  row.appendChild(swatch);
+	  row.appendChild(name);
+	  container.appendChild(row);
+	});
+  }
+
+  renderLegendEditor() {
+	const list = document.getElementById('legendList');
+	if (!list) return;
+	
+	this._clearEventListeners(list);
+	list.innerHTML = '';
+
+	if (!this.app.model.legend) {
+	  this.app.model.legend = [];
+	}
+
+	(this.app.model.legend || []).forEach((entry, idx) => {
+	  if (!entry.id) entry.id = Math.random().toString(36).slice(2, 9);
+
+	  const row = document.createElement('div');
+	  row.className = 'legend-row';
+
+	  if (this.editMode) {
+		row.innerHTML = `
+		  <input type="text" class="legend-name" data-idx="${idx}" value="${entry.name}" />
+		  <div class="legend-swatch" data-idx="${idx}" style="width:28px;height:28px;border:1px solid #00ffff;background:${entry.color};cursor:pointer;"></div>
+		  <button class="button small legend-remove" data-idx="${idx}">DEL</button>
+		`;
+	  } else {
+		row.innerHTML = `
+		  <div style="flex:1;color:#00ffff">${entry.name}</div>
+		  <div style="width:12px;height:12px;background:${entry.color};border:1px solid rgba(255,255,255,0.1);"></div>
+		`;
+	  }
+
+	  list.appendChild(row);
+	});
+
+	if (this.editMode) {
+	  this._setupLegendEventListeners(list);
+	}
+  }
+
+  _setupLegendEventListeners(list) {
+	// Name inputs
+	list.querySelectorAll('.legend-name').forEach(inp => {
+	  const listener = (e) => {
+		const i = parseInt(e.target.dataset.idx);
+		this.app.model.legend[i].name = e.target.value;
+		this.updateLegendDisplay();
+		this.renderLegendAssignSelect();
+	  };
+	  inp.addEventListener('change', listener);
+	  this._addEventListener(inp, 'change', listener);
+	});
+
+	// Color swatches
+	list.querySelectorAll('.legend-swatch').forEach(swatch => {
+	  const listener = () => {
+		const i = parseInt(swatch.dataset.idx);
+		this.openColorPicker(swatch, this.app.model.legend[i].color, (color) => {
+		  this.app.model.legend[i].color = color;
+		  this.updateLegendDisplay();
+		  this.app.rebuild();
+		});
+	  };
+	  swatch.addEventListener('click', listener);
+	  this._addEventListener(swatch, 'click', listener);
+	});
+
+	// Remove buttons
+	list.querySelectorAll('.legend-remove').forEach(btn => {
+	  const listener = (e) => {
+		const i = parseInt(e.target.dataset.idx);
+		this.app.model.legend.splice(i, 1);
+		this.updateLegendDisplay();
+		this.renderLegendAssignSelect();
+	  };
+	  btn.addEventListener('click', listener);
+	  this._addEventListener(btn, 'click', listener);
+	});
+  }
+
+  renderLegendAssignSelect() {
+	const sel = document.getElementById('assignLegendSelect');
+	if (!sel) return;
+	
+	this._clearEventListeners(sel);
+	
+	sel.innerHTML = '<option value="">-- none --</option>';
+
+	if (!this.app.model.legend) {
+	  this.app.model.legend = [];
+	}
+
+	(this.app.model.legend || []).forEach(entry => {
+	  const opt = document.createElement('option');
+	  opt.value = entry.id;
+	  opt.textContent = entry.name;
+	  sel.appendChild(opt);
+	});
+
+	const listener = () => {
+	  if (!this.app.selectedNode?.userData) return;
+	  const id = this.app.selectedNode.userData.id;
+	  const node = ArchModel.findById(this.app.model.root, id);
+	  if (!node) return;
+
+	  if (sel.value) {
+		node.category = sel.value;
+	  } else {
+		delete node.category;
+	  }
+
+	  this.app.rebuild();
+	};
+	
+	sel.addEventListener('change', listener);
+	this._addEventListener(sel, 'change', listener);
+  }
+
+  openColorPicker(anchor, initial, callback) {
+	const input = document.createElement('input');
+	input.type = 'color';
+	input.value = initial || '#00ffff';
+	input.style.cssText = 'position:absolute;opacity:0;width:0;height:0;';
+	document.body.appendChild(input);
+
+	const cleanup = () => {
+	  input.remove();
+	};
+
+	input.addEventListener('input', (e) => callback(e.target.value));
+	input.addEventListener('change', (e) => { callback(e.target.value); cleanup(); });
+	input.addEventListener('blur', () => setTimeout(cleanup, 100));
+
+	input.click();
+  }
+
+  populateEditPanel() {
+	const panel = document.getElementById('editPanel');
+	const content = document.getElementById('editContent');
+	if (!panel || !content) return;
+
+	if (!this.editMode || !this.app.selectedNode) {
+	  panel.style.display = 'none';
+	  return;
+	}
+
+	panel.style.display = 'block';
+	const sceneNode = this.app.selectedNode;
+	const archNode = ArchModel.findById(this.app.model.root, sceneNode.userData.id);
+
+	content.innerHTML = `
+	  <div class="edit-row"><label>Name</label><input type="text" id="editName" value="${archNode?.name || ''}"></div>
+	  <div style="display:flex;gap:8px;margin-top:8px"><select id="assignLegendSelect" style="flex:1;padding:6px;background:rgba(0,0,0,0.6);border:1px solid #00ffff;color:#00ffff;"></select></div>
+	  <div class="edit-row"><label>Scale</label><input type="number" id="editScale" step="0.1" min="0.1" value="${archNode?.scale || 1}"></div>
+	  <div class="edit-row"><label>Pos X</label><input type="number" id="editPosX" step="0.1" value="${sceneNode.position.x.toFixed(2)}"></div>
+	  <div class="edit-row"><label>Pos Y</label><input type="number" id="editPosY" step="0.1" value="${sceneNode.position.y.toFixed(2)}"></div>
+	  <div class="edit-row"><label>Pos Z</label><input type="number" id="editPosZ" step="0.1" value="${sceneNode.position.z.toFixed(2)}"></div>
+	  <div class="edit-actions"><button type="button" class="button small" id="addChildBtn">+ CHILD</button><button type="button" class="button small danger" id="deleteNodeBtn">DELETE</button></div>
+	`;
+
+	this._wireEditInputs(archNode);
+	this.renderLegendAssignSelect();
+
+	const sel = document.getElementById('assignLegendSelect');
+	if (sel && archNode?.category) {
+	  sel.value = archNode.category;
+	}
+  }
+
+  renderEmptyEditPanel() {
+	const panel = document.getElementById('editPanel');
+	const content = document.getElementById('editContent');
+	if (!panel || !content) return;
+
+	panel.style.display = 'block';
+	content.innerHTML = '<div style="color:#00ffff;text-align:center;padding:20px;">Select a node to edit it</div>';
+  }
+
+  updateEditPanelValues() {
+	if (!this.editMode || !this.app.selectedNode) return;
+
+	const sceneNode = this.app.selectedNode;
+	const posX = document.getElementById('editPosX');
+	const posY = document.getElementById('editPosY');
+	const posZ = document.getElementById('editPosZ');
+	
+	if (posX && document.activeElement !== posX) posX.value = sceneNode.position.x.toFixed(2);
+	if (posY && document.activeElement !== posY) posY.value = sceneNode.position.y.toFixed(2);
+	if (posZ && document.activeElement !== posZ) posZ.value = sceneNode.position.z.toFixed(2);
+  }
+
+  _wireEditInputs(archNode) {
+	if (!archNode) return;
+
+	const nameIn = document.getElementById('editName');
+	const scaleIn = document.getElementById('editScale');
+	const posX = document.getElementById('editPosX');
+	const posY = document.getElementById('editPosY');
+	const posZ = document.getElementById('editPosZ');
+	const addBtn = document.getElementById('addChildBtn');
+	const delBtn = document.getElementById('deleteNodeBtn');
+
+	const applyChanges = () => {
+	  archNode.name = nameIn?.value || archNode.name;
+	  archNode.scale = parseFloat(scaleIn?.value) || 1;
+	  const pos = [parseFloat(posX?.value) || 0, parseFloat(posY?.value) || 0, parseFloat(posZ?.value) || 0];
+	  archNode.pos = pos;
+
+	  const sceneNode = this.app.selectedNode;
+	  if (sceneNode) sceneNode.position.set(...pos);
+
+	  this.app.rebuild();
+	};
+
+	// Setup event listeners for inputs
+	[nameIn, scaleIn, posX, posY, posZ].forEach(input => {
+	  if (input) {
+		this._clearEventListeners(input);
+		input.addEventListener('change', applyChanges);
+		this._addEventListener(input, 'change', applyChanges);
+	  }
+	});
+
+	// Add child button
+	if (addBtn) {
+	  this._clearEventListeners(addBtn);
+	  
+	  const addListener = (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		
+		const newNode = { 
+		  id: Math.random().toString(36).slice(2, 9), 
+		  name: 'New Node', 
+		  pos: [
+			archNode.pos[0], 
+			archNode.pos[1] - 2, 
+			archNode.pos[2]
+		  ], 
+		  scale: 1, 
+		  children: [] 
+		};
+		
+		if (!archNode.children) archNode.children = [];
+		archNode.children.push(newNode);
+		this.app.rebuild();
+	  };
+	  
+	  addBtn.addEventListener('click', addListener);
+	  this._addEventListener(addBtn, 'click', addListener);
+	}
+
+	// Delete button
+	if (delBtn) {
+	  this._clearEventListeners(delBtn);
+	  
+	  const deleteListener = (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		
+		const id = archNode.id;
+		if (id === this.app.model.root.id) {
+		  this.addMessage('Cannot delete root node');
+		  return;
+		}
+		ArchModel.deleteById(this.app.model.root, id);
+		this.app.selectedNode = null;
+		this.app.rebuild();
+	  };
+	  
+	  delBtn.addEventListener('click', deleteListener);
+	  this._addEventListener(delBtn, 'click', deleteListener);
+	}
+  }
+
+  _addEventListener(element, event, listener) {
+	if (!this.eventListeners.has(element)) {
+	  this.eventListeners.set(element, new Map());
+	}
+	const elementListeners = this.eventListeners.get(element);
+	
+	if (!elementListeners.has(event)) {
+	  elementListeners.set(event, []);
+	}
+	
+	elementListeners.get(event).push(listener);
+  }
+
+  _clearEventListeners(element) {
+	if (!this.eventListeners.has(element)) return;
+	
+	const elementListeners = this.eventListeners.get(element);
+	
+	elementListeners.forEach((listeners, event) => {
+	  listeners.forEach(listener => {
+		element.removeEventListener(event, listener);
+	  });
+	});
+	
+	this.eventListeners.delete(element);
+  }
+
+  wireAll() {
+	document.getElementById('editBtn')?.addEventListener('click', () => {
+	  this.setEditMode(!this.editMode);
+	});
+
+	this._wireSaveButton();
+	this._wireLoadButton();
+	this._wireSampleButton();
+	this._wireLegendAdder();
+	this._wireSmoothnessControl();
+  }
+
+  _wireSaveButton() {
+	const saveBtn = document.getElementById('saveBtn');
+	if (!saveBtn) return;
+	
+	this._clearEventListeners(saveBtn);
+	
+	const listener = () => {
+	  if (!this.app.model.root?.name || this.app.model.root.name === 'Empty Architecture') {
+		this.addMessage('No architecture to save');
+		return;
+	  }
+	  const xml = ArchModel.toXml(this.app.model);
+	  const blob = new Blob([xml], { type: 'application/xml' });
+	  const url = URL.createObjectURL(blob);
+	  const a = document.createElement('a');
+	  a.href = url;
+	  a.download = 'architecture.xml';
+	  document.body.appendChild(a);
+	  a.click();
+	  document.body.removeChild(a);
+	  URL.revokeObjectURL(url);
+	};
+	
+	saveBtn.addEventListener('click', listener);
+	this._addEventListener(saveBtn, 'click', listener);
+  }
+
+  _wireLoadButton() {
+	const loadBtn = document.getElementById('loadBtn');
+	const fileInput = document.getElementById('xmlFileInput');
+	if (!loadBtn || !fileInput) return;
+
+	this._clearEventListeners(loadBtn);
+	this._clearEventListeners(fileInput);
+	
+	const loadListener = () => fileInput.click();
+	loadBtn.addEventListener('click', loadListener);
+	this._addEventListener(loadBtn, 'click', loadListener);
+	
+	const fileListener = (e) => {
+	  const f = e.target.files?.[0];
+	  if (!f) return;
+
+	  const reader = new FileReader();
+	  reader.onload = (event) => {
+		try {
+		  this.app.model = ArchModel.fromXml(event.target.result);
+		  this.app.rebuild();
+		  this.updateLegendDisplay();
+		  this.addMessage('Architecture loaded');
+		} catch (err) {
+		  this.addMessage('Load failed: invalid XML');
+		}
+	  };
+	  reader.readAsText(f);
+	};
+	
+	fileInput.addEventListener('change', fileListener);
+	this._addEventListener(fileInput, 'change', fileListener);
+  }
+
+  _wireSampleButton() {
+	const sampleBtn = document.getElementById('sampleBtn');
+	if (!sampleBtn) return;
+	
+	this._clearEventListeners(sampleBtn);
+	
+	const listener = () => {
+	  try {
+		this.app.model = ArchModel.createSample();
+		this.app.rebuild();
+		this.updateLegendDisplay();
+		this.addMessage('Sample loaded');
+	  } catch (err) {
+		this.addMessage('Sample load failed');
+	  }
+	};
+	
+	sampleBtn.addEventListener('click', listener);
+	this._addEventListener(sampleBtn, 'click', listener);
+  }
+
+  _wireLegendAdder() {
+	const newLegendName = document.getElementById('newLegendName');
+	const newLegendSwatch = document.getElementById('newLegendSwatch');
+	const addLegendBtn = document.getElementById('addLegendBtn');
+
+	if (newLegendSwatch) {
+	  this._clearEventListeners(newLegendSwatch);
+	  
+	  const swatchListener = () => {
+		this.openColorPicker(newLegendSwatch, newLegendSwatch.style.background || '#00ffff', (color) => {
+		  newLegendSwatch.style.background = color;
+		});
+	  };
+	  
+	  newLegendSwatch.addEventListener('click', swatchListener);
+	  this._addEventListener(newLegendSwatch, 'click', swatchListener);
+	}
+
+	if (addLegendBtn) {
+	  this._clearEventListeners(addLegendBtn);
+	  
+	  const addListener = (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		
+		const name = newLegendName?.value?.trim();
+		if (!name) { this.addMessage('Legend name required'); return; }
+		if (!this.app.model.legend) this.app.model.legend = [];
+		this.app.model.legend.push({
+		  id: Math.random().toString(36).slice(2, 9),
+		  name,
+		  color: newLegendSwatch?.style.background || '#00ffff'
+		});
+		if (newLegendName) newLegendName.value = '';
+		this.updateLegendDisplay();
+		this.renderLegendEditor();
+		this.renderLegendAssignSelect();
+		this.app.rebuild();
+	  };
+	  
+	  addLegendBtn.addEventListener('click', addListener);
+	  this._addEventListener(addLegendBtn, 'click', addListener);
+	}
+  }
+
+  _wireSmoothnessControl() {
+	const smoothSlider = document.getElementById('smoothnessSlider');
+	if (!smoothSlider) return;
+
+	smoothSlider.min = "0.8";
+	smoothSlider.max = "0.99";
+	smoothSlider.step = "0.01";
+	smoothSlider.value = 0.95;
+	
+	this._clearEventListeners(smoothSlider);
+
+	const listener = (e) => {
+	  const value = parseFloat(e.target.value);
+	  this.app.renderer.smoothFactors = {
+		drag: value,
+		zoom: value,
+		general: value
+	  };
+	};
+	
+	smoothSlider.addEventListener('input', listener);
+	this._addEventListener(smoothSlider, 'input', listener);
   }
 }
-
-// Selected indicator and rename input builders
-export function ensureSelectedIndicator() {
-  if (window.__selectedIndicatorElement) return window.__selectedIndicatorElement;
-  const el = document.createElement('div'); el.className = 'selected-node-indicator'; el.style.display = 'none'; document.body.appendChild(el); window.__selectedIndicatorElement = el; return el;
-}
-export function ensureRenameInput() {
-  if (window.__renameInputEl) return window.__renameInputEl;
-  const el = document.createElement('input'); el.type = 'text'; el.style.position = 'absolute'; el.style.zIndex = 90; el.style.display = 'none'; el.style.padding = '6px 8px'; el.style.border = '1px solid #00ffff'; el.style.background = 'rgba(0,0,0,0.8)'; el.style.color = '#00ffff'; el.style.fontFamily = 'Orbitron, sans-serif'; document.body.appendChild(el); window.__renameInputEl = el; return el;
-}
-export function showRenameInputAtSelected() {
-  const renameInput = ensureRenameInput();
-  const id = D.getSelectedId ? D.getSelectedId() : null;
-  const sceneNode = D.getSelectedNode ? D.getSelectedNode() : (D.archRenderer ? D.archRenderer.getSceneNodeById(id) : null);
-  if (!sceneNode) return;
-  const pos = sceneNode.position.clone();
-  const projected = pos.project(D.archRenderer.camera);
-  const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
-  const y = (-projected.y * 0.5 + 0.5) * window.innerHeight;
-  renameInput.style.left = (x + 24) + 'px';
-  renameInput.style.top = (y - 12) + 'px';
-  renameInput.value = sceneNode.userData.name || '';
-  renameInput.style.display = 'block';
-  renameInput.focus();
-}
-
-export function updateSelectedIndicatorPosition() {
-  const el = window.__selectedIndicatorElement;
-  if (!el) return;
-  const id = D.getSelectedId ? D.getSelectedId() : null;
-  const sceneNode = D.getSelectedNode ? D.getSelectedNode() : (D.archRenderer ? D.archRenderer.getSceneNodeById(id) : null);
-  // hide indicator if not in edit mode or no node selected
-  if (!D.getEditMode || !D.getEditMode() || !sceneNode) {
-    el.style.display = 'none';
-    return;
-  }
-  el.style.display = 'block';
-  const pos = sceneNode.position.clone();
-  const projected = pos.project(D.archRenderer.camera);
-  const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
-  const y = ( -projected.y * 0.5 + 0.5) * window.innerHeight;
-  el.style.left = x + 'px';
-  el.style.top = y + 'px';
-}
-
-// attachImmediateEditHandlers: wired to inputs in edit panel
-export function attachImmediateEditHandlers() {
-  const nameIn = document.getElementById('editName');
-  const scaleIn = document.getElementById('editScale');
-  const posX = document.getElementById('editPosX');
-  const posY = document.getElementById('editPosY');
-  const posZ = document.getElementById('editPosZ');
-  const applyChanges = () => {
-    const id = D.getSelectedId ? D.getSelectedId() : null;
-    if (!id) return;
-    const sceneNode = D.getSelectedNode ? D.getSelectedNode() : (D.archRenderer ? D.archRenderer.getSceneNodeById(id) : null);
-    if (!sceneNode) return;
-    const newName = nameIn.value.trim();
-    const newScale = parseFloat(scaleIn.value) || 1;
-    const x = parseFloat(posX.value) || 0;
-    const y = parseFloat(posY.value) || 0;
-    const z = parseFloat(posZ.value) || 0;
-    sceneNode.userData.name = newName;
-    sceneNode.position.set(x,y,z);
-  const arch = D.getArchitecture ? D.getArchitecture() : null;
-  const archNode = D.findNodeById && arch ? D.findNodeById(arch.root, id) : null;
-    if (archNode) { archNode.name = newName; archNode.scale = newScale; archNode.pos = [x,y,z]; }
-    try { D.rebuildScene && D.rebuildScene(); } catch (e) {}
-  };
-  if (nameIn) nameIn.addEventListener('change', applyChanges);
-  if (scaleIn) scaleIn.addEventListener('change', applyChanges);
-  if (posX) posX.addEventListener('change', applyChanges);
-  if (posY) posY.addEventListener('change', applyChanges);
-  if (posZ) posZ.addEventListener('change', applyChanges);
-}
-
-// wireUiHandlers: attach top-level UI buttons
-export function wireUiHandlers() {
-  const attachOnce = (id, event, fn) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (el.dataset && el.dataset.wired) return;
-    el.addEventListener(event, fn);
-    el.dataset.wired = '1';
-  };
-  attachOnce('editBtn', 'click', () => {
-    if (!D.getEditMode || !D.setEditMode) return;
-    if (!D.getEditMode()) { if (window.innerWidth < 900) { addMessage('Edit mode is available on desktop only.'); return; } }
-    D.setEditMode(!D.getEditMode());
-    const btn = document.getElementById('editBtn'); if (btn) { btn.classList.toggle('active', D.getEditMode()); btn.textContent = D.getEditMode() ? '✖️ EXIT EDITOR' : '✏️ EDIT'; }
-    if (D.getEditMode()) {
-      renderLegendEditor(); renderLegendAssignSelect();
-      const nodeHeader = document.getElementById('nodeEditorHeader'); if (nodeHeader) nodeHeader.style.display = '';
-      const editPanel = document.getElementById('editPanel'); if (editPanel) { editPanel.style.display = ''; editPanel.setAttribute('aria-hidden','false'); }
-      ensureSelectedIndicator(); ensureRenameInput();
-      // message handled by setEditMode
-      const legendEditor = document.getElementById('legendEditor'); if (legendEditor) legendEditor.style.display = '';
-      // hide primary actions while editing
-      ['saveBtn','loadBtn','sampleBtn'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        // remember if it was already hidden
-        try { el.dataset._wasHiddenByEdit = el.style.display === 'none' ? '1' : ''; } catch(e){}
-        el.style.display = 'none';
-      });
-      const smooth = document.querySelector('.smoothness-control'); if (smooth) { try { smooth.dataset._wasHiddenByEdit = smooth.style.display === 'none' ? '1' : ''; } catch(e){} smooth.style.display = 'none'; }
-    } else {
-      const nodeHeader = document.getElementById('nodeEditorHeader'); if (nodeHeader) nodeHeader.style.display = 'none';
-      const editPanel = document.getElementById('editPanel'); if (editPanel) { editPanel.style.display = 'none'; editPanel.setAttribute('aria-hidden','true'); }
-      const selInd = window.__selectedIndicatorElement; if (selInd) selInd.style.display = 'none';
-      const renameIn = window.__renameInputEl; if (renameIn) renameIn.style.display = 'none';
-  try { D.archRenderer && D.archRenderer.hideGizmo(); } catch (e) {}
-  // message handled by setEditMode
-      const legendEditor = document.getElementById('legendEditor'); if (legendEditor) legendEditor.style.display = 'none';
-      // restore primary actions visibility
-      ['saveBtn','loadBtn','sampleBtn'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        try {
-          if (el.dataset && el.dataset._wasHiddenByEdit) { delete el.dataset._wasHiddenByEdit; }
-          else { el.style.display = ''; }
-        } catch(e) { el.style.display = ''; }
-      });
-      const smooth = document.querySelector('.smoothness-control'); if (smooth) { try { if (smooth.dataset && smooth.dataset._wasHiddenByEdit) { delete smooth.dataset._wasHiddenByEdit; } else { smooth.style.display = ''; } } catch(e) { smooth.style.display = ''; } }
-    }
-  });
-
-  // wire legend add controls once
-  try { _wireLegendAddControls(); } catch (e) {}
-
-  // wire save/load/sample buttons and file input
-  try {
-    const saveBtn = document.getElementById('saveBtn');
-    const loadBtn = document.getElementById('loadBtn');
-    const sampleBtn = document.getElementById('sampleBtn');
-    const fileInput = document.getElementById('xmlFileInput');
-    if (saveBtn) {
-      saveBtn.addEventListener('click', (e) => {
-        try {
-          const arch = D.getArchitecture ? D.getArchitecture() : null;
-          if (!arch || !arch.root || !arch.root.name || arch.root.name === 'Empty Architecture') { addMessage('No architecture to save. Please load an architecture first.'); return; }
-          const xml = ArchitectureXML.architectureToXML(arch);
-          const blob = new Blob([xml], { type: 'application/xml' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'architecture.xml';
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => { try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch (e) {} }, 1000);
-        } catch (err) { console.warn('saveBtn error', err); addMessage('Save failed'); }
-      });
-    }
-    if (loadBtn && fileInput) {
-      loadBtn.addEventListener('click', (e) => { fileInput.click(); });
-      fileInput.addEventListener('change', (ev) => {
-        const f = ev.target.files && ev.target.files[0];
-        if (!f) return;
-        const reader = new FileReader();
-        reader.onload = (r) => {
-          try {
-            const xml = r.target.result;
-            const loaded = ArchitectureXML.xmlToArchitecture(xml);
-            try { D.setArchitecture && D.setArchitecture(loaded); } catch (e) {}
-            try { D.rebuildScene && D.rebuildScene(); } catch (e) {}
-            try { updateLeftLegendDisplay(); } catch (e) {}
-            try { updateTitle(); } catch (e) {}
-            addMessage('Architecture loaded');
-          } catch (err) { console.warn('load parse failed', err); addMessage('Load failed: invalid XML'); }
-        };
-        reader.readAsText(f);
-      });
-    }
-    if (sampleBtn) {
-      sampleBtn.addEventListener('click', async (e) => {
-        try {
-          // try to fetch sample file from examples folder
-          const res = await fetch('/examples/microservices.xml');
-          if (!res.ok) { addMessage('Failed to load sample'); return; }
-          const xml = await res.text();
-          const loaded = ArchitectureXML.xmlToArchitecture(xml);
-          try { D.setArchitecture && D.setArchitecture(loaded); } catch (e) {}
-          try { D.rebuildScene && D.rebuildScene(); } catch (e) {}
-          try { updateLeftLegendDisplay(); } catch (e) {}
-          try { updateTitle(); } catch (e) {}
-          addMessage('Sample loaded');
-        } catch (err) { console.warn('sampleBtn failed', err); addMessage('Failed to load sample'); }
-      });
-    }
-  } catch (err) { console.warn('save/load wiring failed', err); }
-}
-
-// include get/set edit mode in the default export for external callers
-export default { init, addMessage, setPanelsVisible, updateLeftLegendDisplay, renderLegendEditor, renderLegendAssignSelect, updateLegend, updateTitle, populateEditPanelForSelected, ensureSelectedIndicator, ensureRenameInput, showRenameInputAtSelected, updateSelectedIndicatorPosition, attachImmediateEditHandlers, wireUiHandlers, getEditMode, setEditMode };

@@ -225,7 +225,7 @@ input[type="range"]::-moz-range-thumb {
 	font-size: 12px;
 	color: #ffffff;
 	text-align: center;
-	margin-top: 4px;
+	margin-top: 14px;
 }
 
 .author-info a {
@@ -248,10 +248,10 @@ input[type="range"]::-moz-range-thumb {
 /* Legend editor */
 .legend-editor {
 	margin-top: 12px;
-	border-top: 1px dashed rgba(0,255,255,0.12);
+	border-top: 1px dashed #00ffff;
 	padding-top: 8px;
 }
-.legend-editor, .edit-panel {
+.legend-editor {
 	max-height: 40vh;
 	overflow-y: auto;
 }
@@ -460,23 +460,12 @@ input[type="range"]::-moz-range-thumb {
 		z-index: 80;
 	}
 
-	/* Edit panel styles */
-	.edit-panel {
-		margin-top: 6px;
-		/* visually integrate with surrounding panel-box: remove inner border and heavy background */
-		background: transparent;
-		padding: 4px 0 0 0;
-		border: none;
-		display: block;
-	}
-
 	.edit-row { display: flex; gap: 6px; align-items: center; margin: 2px 0; }
 	.edit-row label { width: 48px; color: #00ffff; font-size: 11px; }
 	.edit-row input[type="text"], .edit-row input[type="number"], .edit-row input[type="color"] { flex: 1; padding: 4px; background: rgba(0,0,0,0.6); border: 1px solid #00ffff; color: #00ffff; font-size: 12px; }
 
 	.edit-actions { display:flex; gap:6px; margin-top:8px; margin-bottom:0; }
 	/* avoid global button bottom margin inside the compact edit panel */
-	.edit-panel .button, .edit-panel .button.small { margin-bottom: 0; }
 	.button.small { padding: 4px 6px; font-size: 11px; }
 	.button.danger { border-color: #ff5555; color: #ff8888; }
 }
