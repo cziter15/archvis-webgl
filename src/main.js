@@ -133,6 +133,35 @@ let architecture = {
 let uiVisible = true;
 let cursorVisible = true;
 
+// Try to unregister any previously-registered service workers and optionally clear caches.
+// This helps if a deployed service worker or aggressive HTTP caching is serving an old bundle to mobile devices.
+// It's intentionally conservative: it only runs when the page loads and logs results to console.
+if ('serviceWorker' in navigator) {
+	try {
+		navigator.serviceWorker.getRegistrations().then(regs => {
+			if (regs && regs.length) {
+				console.info('Found', regs.length, 'service worker registrations — attempting to unregister them to avoid stale cache.');
+			}
+			regs.forEach(r => r.unregister().then(ok => {
+				console.info('Service worker unregistered:', ok, r);
+			}).catch(err => console.warn('SW unregister error', err)));
+		}).catch(err => console.warn('Error getting SW registrations', err));
+
+		// Also optionally clear Cache Storage (best-effort). Some hosts may not allow; catch errors.
+		if (window.caches && typeof window.caches.keys === 'function') {
+			caches.keys().then(names => {
+				names.forEach(name => {
+					caches.delete(name).then(deleted => {
+						console.info('Cache deleted:', name, deleted);
+					}).catch(err => console.warn('Cache delete failed', name, err));
+				});
+			}).catch(err => console.warn('Error listing caches', err));
+		}
+	} catch (e) {
+		console.warn('Service worker cleanup failed', e);
+	}
+}
+
 if (!window.smoothFactors) {
 	window.smoothFactors = {
 		drag: 0.25,
