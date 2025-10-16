@@ -25,8 +25,8 @@ body {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	/* allow child controls to receive pointer events; individual elements may opt-out */
-	pointer-events: auto;
+	/* allow child controls to receive pointer events; let clicks pass through to canvas by default */
+	pointer-events: none;
 }
 
 .message-display {
@@ -86,9 +86,21 @@ body {
 
 .panel-box {
 	background: rgba(0, 0, 0, 0.7);
-	padding: 16px;
+	padding: 10px;
 	border: 1px solid #00ffff;
 	width: 100%;
+}
+
+/* avoid horizontal scrollbar caused by long flex children */
+.right-panel .panel-box {
+	overflow-x: hidden;
+}
+
+/* Prevent right panel overflow: limit height and allow internal scrolling */
+.right-panel .panel-box {
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+    padding-right: 8px; /* allow space for scrollbar */
 }
 
 .legend {
@@ -126,12 +138,12 @@ body {
 
 .right-panel {
 	position: absolute;
-	top: 24px;
-	right: 24px;
+	top: 18px;
+	right: 18px;
 	color: #00ffff;
-	font-size: 14px;
+	font-size: 12px;
 	pointer-events: all;
-	width: 256px;
+	width: 260px; /* slightly wider so form fields fit */
 }
 
 .button {
@@ -152,6 +164,8 @@ body {
 	color: #ffffff;
 	border-color: #00ccff;
 }
+
+/* Edit button: visibility controlled by media queries below */
 
 .smoothness-control {
 	margin-top: 16px;
@@ -229,6 +243,107 @@ input[type="range"]::-moz-range-thumb {
 .author-info a:focus {
 	color: #ffffff;
 	text-decoration: none;
+}
+
+/* Legend editor */
+.legend-editor {
+	margin-top: 12px;
+	border-top: 1px dashed rgba(0,255,255,0.12);
+	padding-top: 8px;
+}
+.legend-editor, .edit-panel {
+	max-height: 40vh;
+	overflow-y: auto;
+}
+
+/* Ensure legend entries are stacked vertically (tighter spacing) */
+#legendList {
+	display: flex;
+	flex-direction: column;
+	gap: 2px; /* match node editor vertical spacing */
+}
+
+/* Allow inputs inside legend rows to shrink instead of forcing horizontal scroll */
+.legend-editor .legend-row input[type="text"],
+.legend-editor .legend-row input[type="color"],
+.legend-editor .legend-row button {
+	min-width: 0;
+}
+
+/* New-legend controls (Name + color + ADD) — make the name input flexible and limit widths */
+.legend-editor input#newLegendName {
+	flex: 1 1 auto;
+	min-width: 0;
+	/* allow full width within grid cell */
+	width: 100%;
+	box-sizing: border-box;
+	padding:4px;
+	height:28px;
+	font-size:12px;
+}
+
+.legend-editor input#newLegendName::placeholder {
+	color: rgba(255,255,255,0.6);
+}
+.legend-editor #newLegendSwatch {
+	flex: 0 0 28px;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid rgba(255,255,255,0.06);
+	box-sizing: border-box;
+	cursor: pointer;
+}
+.legend-editor button#addLegendBtn {
+	flex: 0 0 60px;
+	min-width: 60px;
+	height: 28px;
+	padding: 0 8px;
+	box-sizing: border-box;
+}
+.legend-editor .legend-row {
+	display: grid;
+	grid-template-columns: 1fr 28px 60px;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 2px; /* match node editor spacing */
+}
+.legend-editor .legend-row input[type="text"] {
+	width: 100%;
+	padding:4px; /* match .edit-row inputs */
+	height: 28px;
+	box-sizing: border-box;
+	background: rgba(0,0,0,0.6);
+	border:1px solid #00ffff;
+	color:#00ffff;
+	font-size: 12px;
+}
+.legend-editor .legend-row .legend-swatch {
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid rgba(255,255,255,0.06);
+	background: #000;
+	box-sizing: border-box;
+	cursor: pointer;
+	align-self: center;
+}
+.legend-editor .legend-row button {
+	width: 100%;
+	height: 28px;
+	padding: 0 8px;
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	line-height: 28px;
+	margin: 0; /* override global .button margin */
+}
+
+/* Ensure children of legend-row use consistent box-sizing and baseline */
+.legend-editor .legend-row > * {
+	box-sizing: border-box;
+	vertical-align: middle;
 }
 
 .hidden-input {
@@ -319,6 +434,51 @@ input[type="range"]::-moz-range-thumb {
 @media (max-width: 899px) {
 	.ui-container .left-panel, .ui-container .right-panel, .title { display: none; }
 	.mobile-controls { display: block; }
+}
+
+/* Desktop-only: ensure edit button and panels show */
+@media (min-width: 900px) {
+	.button#editBtn { display: block; }
+	/* edit overlay */
+	.edit-overlay {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		pointer-events: none; /* individual controls will enable pointer-events when active */
+	}
+
+	.selected-node-indicator {
+		width: 48px;
+		height: 48px;
+		border: 2px dashed rgba(255,255,0,0.9);
+		border-radius: 6px;
+		position: absolute;
+		transform: translate(-50%, -50%);
+		pointer-events: none;
+		z-index: 80;
+	}
+
+	/* Edit panel styles */
+	.edit-panel {
+		margin-top: 6px;
+		/* visually integrate with surrounding panel-box: remove inner border and heavy background */
+		background: transparent;
+		padding: 4px 0 0 0;
+		border: none;
+		display: block;
+	}
+
+	.edit-row { display: flex; gap: 6px; align-items: center; margin: 2px 0; }
+	.edit-row label { width: 48px; color: #00ffff; font-size: 11px; }
+	.edit-row input[type="text"], .edit-row input[type="number"], .edit-row input[type="color"] { flex: 1; padding: 4px; background: rgba(0,0,0,0.6); border: 1px solid #00ffff; color: #00ffff; font-size: 12px; }
+
+	.edit-actions { display:flex; gap:6px; margin-top:8px; margin-bottom:0; }
+	/* avoid global button bottom margin inside the compact edit panel */
+	.edit-panel .button, .edit-panel .button.small { margin-bottom: 0; }
+	.button.small { padding: 4px 6px; font-size: 11px; }
+	.button.danger { border-color: #ff5555; color: #ff8888; }
 }
 
 /* Mobile action menu */

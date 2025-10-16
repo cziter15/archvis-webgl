@@ -42,7 +42,8 @@
 			<div class="panel-box">
 				<button class="button" id="saveBtn">💾 SAVE</button>
 				<button class="button" id="loadBtn">📁 LOAD</button>
-				<button class="button" id="sampleBtn">📋 SAMPLE</button>
+				<button class="button" id="sampleBtn">📋 LOAD SAMPLE</button>
+				<button class="button" id="editBtn">✏️ EDIT</button>
 				<div class="smoothness-control">
 					<div class="smoothness-label">SMOOTHNESS:</div>
 					<div class="slider-container">
@@ -52,6 +53,41 @@
 					</div>
 					<div class="author-info">
 						© <a href="https://github.com/cziter15" target="_blank">K. STREHLAU</a>
+					</div>
+				</div>
+
+				<!-- Legend editor (always visible) -->
+				<div class="legend-editor" id="legendEditor" style="margin-top:12px;">
+					<div style="margin-bottom:8px;">
+						<div class="legend-title" style="font-size:12px;color:#00ccff;">LEGEND EDITOR</div>
+					</div>
+					<div id="legendList"></div>
+					<div class="legend-row" style="margin-top:8px;">
+						<input type="text" id="newLegendName" placeholder="Name" />
+						<div id="newLegendSwatch" style="width:28px;height:28px;border:1px solid #00ffff;background:#00ffff;cursor:pointer;"></div>
+						<button class="button small" id="addLegendBtn">ADD</button>
+					</div>
+				</div>
+				<!-- Edit panel (desktop only) -->
+				<div style="border-top:1px dashed rgba(0,255,255,0.12);margin-top:8px;padding-top:4px;">
+					<div id="nodeEditorHeader" style="font-size:12px;color:#00ccff;margin:4px 0 6px 0;">NODE EDITOR</div>
+				</div>
+				<div class="edit-panel" id="editPanel" aria-hidden="true" style="display:none;">
+					<div id="editContent">
+						<div class="edit-row"><label>Name</label><input type="text" id="editName"></div>
+						<!-- Color removed: node color is derived from legend category -->
+						<!-- EDIT LEGEND button removed from node editor (legend editor has its own controls) -->
+						<div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+							<select id="assignLegendSelect" style="flex:1;padding:6px;background:rgba(0,0,0,0.6);border:1px solid #00ffff;color:#00ffff;"></select>
+						</div>
+						<div class="edit-row"><label>Scale</label><input type="number" id="editScale" step="0.1" min="0.1"></div>
+						<div class="edit-row"><label>Pos X</label><input type="number" id="editPosX" step="0.1"></div>
+						<div class="edit-row"><label>Pos Y</label><input type="number" id="editPosY" step="0.1"></div>
+						<div class="edit-row"><label>Pos Z</label><input type="number" id="editPosZ" step="0.1"></div>
+						<div class="edit-actions">
+							<button class="button small" id="addChildBtn">+ CHILD</button>
+							<button class="button small danger" id="deleteNodeBtn">DELETE</button>
+						</div>
 					</div>
 				</div>
 			</div>
