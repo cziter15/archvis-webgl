@@ -78,6 +78,13 @@
 			</div>
 			<div class="message-display" id="messageDisplay"></div>
 			<div class="ui-toggle" id="uiToggle">Press U to show UI</div>
+
+			<!-- mobile action buttons moved to top for better visibility on mobile -->
+			<div class="mobile-menu" id="mobileMenu">
+				<button id="mobileSaveBtn" class="mobile-action">💾</button>
+				<button id="mobileLoadBtn" class="mobile-action">📁</button>
+				<button id="mobileSampleBtn" class="mobile-action">📋</button>
+			</div>
 		</div>
 		<div id="mobileControls" class="mobile-controls" aria-hidden="true">
 			<div id="leftStick" class="stick left-stick" aria-label="move joystick">
@@ -91,11 +98,7 @@
 				<button id="btnDown" class="action-btn">▼</button>
 			</div>
 		</div>
-		<div class="mobile-menu" id="mobileMenu">
-			<button id="mobileSaveBtn" class="mobile-action">💾</button>
-			<button id="mobileLoadBtn" class="mobile-action">📁</button>
-			<button id="mobileSampleBtn" class="mobile-action">📋</button>
-		</div>
+
 		<input type="file" id="xmlFileInput" class="hidden-input" accept=".xml">
 		<script type="module" src="./src/main.js"></script>
 	</body>

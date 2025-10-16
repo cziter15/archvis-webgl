@@ -54,6 +54,7 @@ export class InputHandler {
 
 	this._setupTouchControls();
 	this._setupMobileButtons();
+	this._setupMobileSticks();
   }
 
   _handleKeyDown(e) {
@@ -255,6 +256,7 @@ export class InputHandler {
 	  btnUp.addEventListener('touchcancel', (e) => { upHandler(e); }, { passive: false });
 	}
 
+
 	if (btnDown) {
 	  const downHandlerD = (ev) => {
 		this.mobile.downPressed = true;
@@ -279,6 +281,145 @@ export class InputHandler {
 	  btnDown.addEventListener('touchcancel', (e) => { upHandlerD(e); }, { passive: false });
 	}
   }
+
+	_setupMobileSticks() {
+		const left = document.getElementById('leftStick');
+		const right = document.getElementById('rightStick');
+		const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+		const setupStick = (el, posKey) => {
+			if (!el) return;
+			const knob = el.querySelector('.stick-knob');
+			if (!knob) return;
+
+					const onPointerDown = (e) => {
+						try { el.setPointerCapture?.(e.pointerId); } catch (err) {}
+						this.resetAutoRotate();
+						// assign pointer only if slot free
+						if (posKey === 'left') {
+							if (this.mobile.leftTouchId == null) this.mobile.leftTouchId = e.pointerId;
+							else return;
+						}
+						if (posKey === 'right') {
+							if (this.mobile.rightTouchId == null) this.mobile.rightTouchId = e.pointerId;
+							else return;
+						}
+						updateFromEvent(e);
+					};
+
+					const onPointerMove = (e) => {
+						const id = e.pointerId;
+						if (posKey === 'left') {
+							if (this.mobile.leftTouchId === null) return;
+							if (this.mobile.leftTouchId !== id) return;
+						}
+						if (posKey === 'right') {
+							if (this.mobile.rightTouchId === null) return;
+							if (this.mobile.rightTouchId !== id) return;
+						}
+						updateFromEvent(e);
+					};
+
+			const onPointerUp = (e) => {
+				try { el.releasePointerCapture?.(e.pointerId); } catch (err) {}
+				if (posKey === 'left') {
+					this.mobile.leftTouchId = null;
+					this.mobile.leftPos.x = 0; this.mobile.leftPos.y = 0;
+				}
+				if (posKey === 'right') {
+					this.mobile.rightTouchId = null;
+					this.mobile.rightPos.x = 0; this.mobile.rightPos.y = 0;
+				}
+				knob.style.transform = 'translate(0px, 0px)';
+			};
+
+			const updateFromEvent = (e) => {
+				const rect = el.getBoundingClientRect();
+				const cx = rect.left + rect.width / 2;
+				const cy = rect.top + rect.height / 2;
+				const dx = e.clientX - cx;
+				const dy = e.clientY - cy;
+				const r = Math.max(20, Math.min(this.mobile.maxRadius || 44, rect.width / 2 - 8));
+				const d = Math.hypot(dx, dy);
+				const ndx = dx === 0 && dy === 0 ? 0 : dx * Math.min(1, r / Math.max(d, 0.0001));
+				const ndy = dy === 0 && dx === 0 ? 0 : dy * Math.min(1, r / Math.max(d, 0.0001));
+
+				knob.style.transform = `translate(${ndx}px, ${ndy}px)`;
+
+				const nx = clamp(ndx / r, -1, 1);
+				const ny = clamp(ndy / r, -1, 1);
+
+				if (posKey === 'left') {
+					this.mobile.leftPos.x = nx;
+					this.mobile.leftPos.y = ny;
+				} else {
+					this.mobile.rightPos.x = nx;
+					this.mobile.rightPos.y = ny;
+				}
+			};
+
+			// Prefer pointer events
+			el.addEventListener('pointerdown', onPointerDown);
+			window.addEventListener('pointermove', onPointerMove);
+			window.addEventListener('pointerup', onPointerUp);
+
+					// Fallback for touch events (use touch identifier per-stick to avoid mixing touches)
+					el.addEventListener('touchstart', (ev) => {
+						this.resetAutoRotate();
+						ev.preventDefault();
+						const rect = el.getBoundingClientRect();
+								for (let i = 0; i < ev.changedTouches.length; i++) {
+									const t = ev.changedTouches[i];
+									if (t.clientX >= rect.left && t.clientX <= rect.right && t.clientY >= rect.top && t.clientY <= rect.bottom) {
+										if (posKey === 'left') {
+											if (this.mobile.leftTouchId == null) {
+												this.mobile.leftTouchId = t.identifier;
+												updateFromEvent(t);
+											}
+										} else {
+											if (this.mobile.rightTouchId == null) {
+												this.mobile.rightTouchId = t.identifier;
+												updateFromEvent(t);
+											}
+										}
+										break;
+									}
+								}
+					}, { passive: false });
+
+					el.addEventListener('touchmove', (ev) => {
+						ev.preventDefault();
+						const id = posKey === 'left' ? this.mobile.leftTouchId : this.mobile.rightTouchId;
+						if (id == null) return;
+						for (let i = 0; i < ev.changedTouches.length; i++) {
+							const t = ev.changedTouches[i];
+							if (t.identifier === id) { updateFromEvent(t); break; }
+						}
+					}, { passive: false });
+
+					el.addEventListener('touchend', (ev) => {
+						ev.preventDefault();
+						for (let i = 0; i < ev.changedTouches.length; i++) {
+							const t = ev.changedTouches[i];
+							if (posKey === 'left' && t.identifier === this.mobile.leftTouchId) {
+								this.mobile.leftTouchId = null;
+								this.mobile.leftPos.x = 0; this.mobile.leftPos.y = 0;
+								knob.style.transform = 'translate(0px, 0px)';
+								break;
+							}
+							if (posKey === 'right' && t.identifier === this.mobile.rightTouchId) {
+								this.mobile.rightTouchId = null;
+								this.mobile.rightPos.x = 0; this.mobile.rightPos.y = 0;
+								knob.style.transform = 'translate(0px, 0px)';
+								break;
+							}
+						}
+					}, { passive: false });
+		};
+
+		setupStick(left, 'left');
+		setupStick(right, 'right');
+	}
 
   _getDist(t1, t2) {
 	const dx = t1.clientX - t2.clientX;

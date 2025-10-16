@@ -334,7 +334,7 @@ export class ArchRenderer {
 	this.renderer.setSize(w, h);
   }
 
-  startLoop(inputState, keys, mobile) {
+	startLoop(inputState, keys, mobile) {
 	if (this._loopRunning) return;
 	this._loopRunning = true;
 	this._loopStop = false;
@@ -360,16 +360,48 @@ export class ArchRenderer {
 	  inputState.currentY += (inputState.targetY - inputState.currentY) * (1 - this.smoothFactors.general);
 	  inputState.currentZ += (inputState.targetZ - inputState.currentZ) * (1 - this.smoothFactors.general);
 
-	  const moveSpeed = 0.3;
+  	const moveSpeed = 0.3;
 	  const forward = new THREE.Vector3(-Math.sin(inputState.currentOrbitAngle), 0, -Math.cos(inputState.currentOrbitAngle));
 	  const right = new THREE.Vector3(Math.cos(inputState.currentOrbitAngle), 0, -Math.sin(inputState.currentOrbitAngle));
 
+	  // Keyboard movement
 	  if (keys.w) { inputState.targetX += forward.x * moveSpeed; inputState.targetZ += forward.z * moveSpeed; }
 	  if (keys.s) { inputState.targetX -= forward.x * moveSpeed; inputState.targetZ -= forward.z * moveSpeed; }
 	  if (keys.a) { inputState.targetX -= right.x * moveSpeed; inputState.targetZ -= right.z * moveSpeed; }
 	  if (keys.d) { inputState.targetX += right.x * moveSpeed; inputState.targetZ += right.z * moveSpeed; }
 	  if (keys.space) inputState.targetY += moveSpeed;
 	  if (keys.shift) inputState.targetY -= moveSpeed;
+
+	  // Mobile left stick: move (forward/right)
+	  if (mobile?.leftPos) {
+		// leftPos.x: -1..1 (left..right), leftPos.y: -1..1 (up..down)
+		const l = mobile.leftPos;
+		if (Math.abs(l.x) > 0.05) {
+		  inputState.targetX += right.x * l.x * moveSpeed;
+		  inputState.targetZ += right.z * l.x * moveSpeed;
+		}
+		if (Math.abs(l.y) > 0.05) {
+		  // invert y so pushing up moves forward
+		  inputState.targetX += forward.x * -l.y * moveSpeed;
+		  inputState.targetZ += forward.z * -l.y * moveSpeed;
+		}
+	  }
+
+	  // Mobile up/down buttons
+	  if (mobile?.upPressed) inputState.targetY += moveSpeed;
+	  if (mobile?.downPressed) inputState.targetY -= moveSpeed;
+
+	  // Mobile right stick: look/rotate
+	  if (mobile?.rightPos) {
+		const rpos = mobile.rightPos;
+		if (Math.abs(rpos.x) > 0.02) {
+		  inputState.targetOrbitAngle -= rpos.x * 0.02; // rotate horizontally
+		}
+		if (Math.abs(rpos.y) > 0.02) {
+		  inputState.targetOrbitHeight += rpos.y * 0.3; // look up/down
+		  inputState.targetOrbitHeight = Math.max(-20, Math.min(35, inputState.targetOrbitHeight));
+		}
+	  }
 
 	  this.camera.position.x = inputState.currentX + Math.sin(inputState.currentOrbitAngle) * inputState.currentOrbitRadius;
 	  this.camera.position.z = inputState.currentZ + Math.cos(inputState.currentOrbitAngle) * inputState.currentOrbitRadius;

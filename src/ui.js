@@ -410,6 +410,21 @@ export class UI {
 	this._wireSampleButton();
 	this._wireLegendAdder();
 	this._wireSmoothnessControl();
+
+	// mobile action buttons (visible on small screens)
+	const mSave = document.getElementById('mobileSaveBtn');
+	const mLoad = document.getElementById('mobileLoadBtn');
+	const mSample = document.getElementById('mobileSampleBtn');
+
+	if (mSave) {
+	  mSave.addEventListener('click', () => document.getElementById('saveBtn')?.click());
+	}
+	if (mLoad) {
+	  mLoad.addEventListener('click', () => document.getElementById('loadBtn')?.click());
+	}
+	if (mSample) {
+	  mSample.addEventListener('click', () => document.getElementById('sampleBtn')?.click());
+	}
   }
 
   _wireSaveButton() {
