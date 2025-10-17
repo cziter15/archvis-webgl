@@ -13,7 +13,7 @@
   </a>
 </p>
 
-<img alt="image" src="https://github.com/user-attachments/assets/d1dfc317-96ae-45f8-8f8b-e06b6e2dc9ff" />
+<img src="./header.png" />
 
 ## ▶️ Quick start
 
