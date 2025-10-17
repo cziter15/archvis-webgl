@@ -423,7 +423,8 @@ export class UI {
 					this.updateLegendDisplay();
 					this.addMessage('Architecture loaded');
 				} catch (err) {
-					this.addMessage('Load failed: invalid XML');
+					const msg = err?.message ? String(err.message) : String(err);
+					this.addMessage('Load failed: ' + msg);
 				}
 			};
 			reader.readAsText(f);

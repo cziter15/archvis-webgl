@@ -93,6 +93,9 @@ export class ArchModel {
 	static fromXml(xmlString) {
 		try {
 			const doc = new DOMParser().parseFromString(xmlString, 'text/xml');
+			if (doc.getElementsByTagName('parsererror')?.length) {
+				throw new Error('XML parse error');
+			}
 			const rootEl = doc.querySelector('arch > node');
 			if (!rootEl) throw new Error('No root node found');
 			const root = this._parseNode(rootEl);
@@ -113,7 +116,7 @@ export class ArchModel {
 			};
 		} catch (error) {
 			console.error('XML parsing error:', error);
-			throw new Error('Invalid XML format');
+			throw error;
 		}
 	}
 
@@ -121,7 +124,7 @@ export class ArchModel {
 		const node = {
 			id: el.getAttribute('id') || Math.random().toString(36).slice(2, 9),
 			name: el.getAttribute('name'),
-			pos: el.getAttribute('pos').split(',').map(Number),
+			pos: [0, 0, 0],
 			children: []
 		};
 		const scale = el.getAttribute('scale');
@@ -133,9 +136,19 @@ export class ArchModel {
 			const color = el.getAttribute('color');
 			if (color) node.color = color;
 		}
-		Array.from(el.querySelectorAll(':scope > node')).forEach(child => {
-			node.children.push(this._parseNode(child));
-		});
+		const posAttr = el.getAttribute('pos');
+		if (posAttr) {
+			const parts = posAttr.split(',').map(p => parseFloat(p));
+			if (parts.length === 3 && parts.every(p => !Number.isNaN(p))) {
+				node.pos = parts;
+			}
+		}
+		for (let i = 0; i < el.childNodes.length; i++) {
+			const child = el.childNodes[i];
+			if (child.nodeType === 1 && child.tagName.toLowerCase() === 'node') {
+				node.children.push(this._parseNode(child));
+			}
+		}
 		return node;
 	}
 
