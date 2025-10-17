@@ -202,7 +202,29 @@ export class UI {
 		const input = document.createElement('input');
 		input.type = 'color';
 		input.value = initial || '#00ffff';
-		input.style.cssText = 'position:absolute;opacity:0;width:0;height:0;';
+		let left = (window.innerWidth / 2) + window.scrollX;
+		let top = (window.innerHeight / 2) + window.scrollY;
+		let width = 24;
+		let height = 24;
+		if (anchor && typeof anchor.getBoundingClientRect === 'function') {
+			try {
+				const rect = anchor.getBoundingClientRect();
+				left = rect.left + window.scrollX;
+				top = rect.top + window.scrollY;
+				width = rect.width || width;
+				height = rect.height || height;
+			} catch (err) {	}
+		}
+		input.style.position = 'absolute';
+		input.style.left = left + 'px';
+		input.style.top = top + 'px';
+		input.style.width = Math.max(2, width) + 'px';
+		input.style.height = Math.max(2, height) + 'px';
+		input.style.opacity = '0';
+		input.style.padding = '0';
+		input.style.margin = '0';
+		input.style.border = 'none';
+		input.style.zIndex = '10000';
 		document.body.appendChild(input);
 		const cleanup = () => {
 			input.remove();
