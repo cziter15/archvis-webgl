@@ -25,6 +25,13 @@ jobs:
           npm ci
           npm run build
 
+      - name: Add header.png to dist
+        run: |
+          mkdir -p ./dist
+          if [ -f "./header.png" ]; then
+            cp ./header.png ./dist/header.png
+          fi
+
       - name: Publish to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
