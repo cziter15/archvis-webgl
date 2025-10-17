@@ -42,7 +42,6 @@ export class ArchModel {
 
 	static mapColorsToLegend(node, legend) {
 		if (!node || !legend?.length) return;
-
 		if (node.category && !node.color) {
 			const entry = legend.find(e => e.id === node.category);
 			if (entry?.color) node.color = entry.color;
@@ -50,14 +49,12 @@ export class ArchModel {
 			const found = legend.find(e => e.color?.toLowerCase() === node.color.toLowerCase());
 			if (found) node.category = found.id;
 		}
-
 		node.children?.forEach(c => this.mapColorsToLegend(c, legend));
 	}
 
 	static toXml(arch) {
 		let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<arch>\n';
 		xml += this._nodeToXml(arch.root, 2);
-
 		if (arch.legend?.length) {
 			xml += '  <legend>\n';
 			arch.legend.forEach(e => {
@@ -65,13 +62,11 @@ export class ArchModel {
 			});
 			xml += '  </legend>\n';
 		}
-
 		if (arch.uiInfo?.title) {
 			xml += '  <ui-info>\n';
 			xml += `    <title>${arch.uiInfo.title}</title>\n`;
 			xml += '  </ui-info>\n';
 		}
-
 		xml += '</arch>';
 		return xml;
 	}
@@ -85,7 +80,6 @@ export class ArchModel {
 			node.category ? `category="${node.category}"` : node.color && `color="${node.color}"`,
 			node.scale !== undefined && `scale="${node.scale}"`
 		].filter(Boolean).join(' ');
-
 		if (node.children?.length) {
 			let xml = `${spaces}<node ${attrs}>\n`;
 			node.children.forEach(c => {
@@ -101,21 +95,17 @@ export class ArchModel {
 			const doc = new DOMParser().parseFromString(xmlString, 'text/xml');
 			const rootEl = doc.querySelector('arch > node');
 			if (!rootEl) throw new Error('No root node found');
-
 			const root = this._parseNode(rootEl);
-
 			const legend = Array.from(doc.querySelectorAll('arch > legend > entry')).map(el => ({
 				id: el.getAttribute('id') || Math.random().toString(36).slice(2, 9),
 				name: el.getAttribute('name'),
 				color: el.getAttribute('color')
 			}));
-
 			const uiInfo = {
 				title: ''
 			};
 			const titleEl = doc.querySelector('arch > ui-info > title');
 			if (titleEl) uiInfo.title = titleEl.textContent;
-
 			return {
 				root,
 				legend,
@@ -134,10 +124,8 @@ export class ArchModel {
 			pos: el.getAttribute('pos').split(',').map(Number),
 			children: []
 		};
-
 		const scale = el.getAttribute('scale');
 		if (scale) node.scale = parseFloat(scale);
-
 		const category = el.getAttribute('category');
 		if (category) {
 			node.category = category;
@@ -145,11 +133,9 @@ export class ArchModel {
 			const color = el.getAttribute('color');
 			if (color) node.color = color;
 		}
-
 		Array.from(el.querySelectorAll(':scope > node')).forEach(child => {
 			node.children.push(this._parseNode(child));
 		});
-
 		return node;
 	}
 

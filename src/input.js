@@ -16,7 +16,6 @@ export class InputHandler {
 	constructor(app, renderer) {
 		this.app = app;
 		this.renderer = renderer;
-
 		this.keys = {
 			w: false,
 			a: false,
@@ -45,7 +44,6 @@ export class InputHandler {
 			autoRotate: true,
 			inactivityTimer: null
 		};
-
 		this.raycaster = new THREE.Raycaster();
 		this.mouse = new THREE.Vector2();
 		this.mobile = {
@@ -67,7 +65,6 @@ export class InputHandler {
 		};
 		this.pinchStartDist = null;
 		this.lastWheelTime = 0;
-
 		this._init();
 	}
 
@@ -82,7 +79,6 @@ export class InputHandler {
 		});
 		document.addEventListener('click', this._handleClick.bind(this));
 		document.addEventListener('contextmenu', (e) => e.preventDefault());
-
 		this._setupTouchControls();
 		this._setupMobileButtons();
 		this._setupMobileSticks();
@@ -96,11 +92,9 @@ export class InputHandler {
 		if (key === 'd') this.keys.d = true;
 		if (e.key === 'Shift') this.keys.shift = true;
 		if (e.key === ' ') this.keys.space = true;
-
 		if (key === 'q') {
 			document.body.classList.toggle('hide-cursor');
 		}
-
 		if (key === 'u') {
 			document.body.classList.toggle('hide-ui');
 			const uiToggle = document.getElementById('uiToggle');
@@ -123,12 +117,10 @@ export class InputHandler {
 	_handleMouseDown(e) {
 		this.inputState.autoRotate = false;
 		this.resetAutoRotate();
-
 		if (e.button === 0) {
 			this.inputState.isDragging = true;
 			this.inputState.lastMouseX = e.clientX;
 			this.inputState.lastMouseY = e.clientY;
-
 			if (this.app.ui.editMode) {
 				this._gizmoPointerDown(e);
 			}
@@ -142,11 +134,9 @@ export class InputHandler {
 
 	_handleMouseUp() {
 		const wasGizmoDragging = !!this.renderer.axisDragging;
-
 		this.inputState.isDragging = false;
 		this.inputState.isMiddleDragging = false;
 		this.renderer.gizmoPointerUp();
-
 		if (wasGizmoDragging) {
 			document.body.classList.remove('grabbing');
 			if (this.app.selectedNode) {
@@ -161,7 +151,6 @@ export class InputHandler {
 	_handleMouseMove(e) {
 		const deltaX = e.clientX - this.inputState.lastMouseX;
 		const deltaY = e.clientY - this.inputState.lastMouseY;
-
 		if (this.inputState.isDragging && this.app.ui.editMode && this.renderer.axisDragging) {
 			this._gizmoPointerMove(e);
 		} else if (this.inputState.isDragging) {
@@ -174,7 +163,6 @@ export class InputHandler {
 			this.inputState.targetZ += right.z * deltaX * 0.08;
 			this.inputState.targetY -= deltaY * 0.08;
 		}
-
 		this.inputState.lastMouseX = e.clientX;
 		this.inputState.lastMouseY = e.clientY;
 	}
@@ -182,10 +170,8 @@ export class InputHandler {
 	_handleWheel(e) {
 		if (this.app.ui.editMode) return;
 		e.preventDefault();
-
 		const s = 1 - this.renderer.smoothFactors.zoom * 2;
 		const p = Math.min(Math.abs(e.deltaY) / 100, 5);
-
 		this.inputState.targetOrbitRadius *= 1 - Math.sign(e.deltaY) * 0.1 * p * s;
 	}
 
@@ -195,7 +181,6 @@ export class InputHandler {
 		this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
 		this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 		this.raycaster.setFromCamera(this.mouse, this.renderer.camera);
-
 		if (this.renderer.gizmoPointerDown(this.raycaster)) {
 			document.body.classList.add('grabbing');
 			e.preventDefault();
@@ -213,24 +198,20 @@ export class InputHandler {
 	_handleClick(e) {
 		if (e.target?.closest?.('.ui-container, .panel-box, .button')) return;
 		if (e.button !== 0) return;
-
 		const rect = this.renderer.renderer.domElement.getBoundingClientRect();
 		this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
 		this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 		this.raycaster.setFromCamera(this.mouse, this.renderer.camera);
-
 		const intersects = this.raycaster.intersectObjects(this.renderer.nodes, true);
 		if (intersects?.length) {
 			let obj = intersects[0].object;
 			while (obj && !this.renderer.nodes.includes(obj)) obj = obj.parent;
-
 			if (obj) {
 				const id = obj.userData?.id;
 				this.app.selectNode(id, obj);
 				return;
 			}
 		}
-
 		this.app.deselectNode();
 	}
 
@@ -243,7 +224,6 @@ export class InputHandler {
 		}, {
 			passive: true
 		});
-
 		document.addEventListener('touchmove', (e) => {
 			if (e.touches.length === 2) {
 				const d = this._getDist(e.touches[0], e.touches[1]);
@@ -257,7 +237,6 @@ export class InputHandler {
 		}, {
 			passive: false
 		});
-
 		document.addEventListener('touchend', (e) => {
 			if (e.touches.length < 2) this.pinchStartDist = null;
 		}, {
@@ -268,7 +247,6 @@ export class InputHandler {
 	_setupMobileButtons() {
 		const btnUp = document.getElementById('btnUp');
 		const btnDown = document.getElementById('btnDown');
-
 		if (btnUp) {
 			const downHandler = (ev) => {
 				this.mobile.upPressed = true;
@@ -280,18 +258,15 @@ export class InputHandler {
 				btnUp.classList.remove('active');
 				ev.preventDefault?.();
 			};
-
 			btnUp.addEventListener('mousedown', downHandler);
 			btnUp.addEventListener('mouseup', upHandler);
 			btnUp.addEventListener('mouseleave', upHandler);
-
 			btnUp.addEventListener('pointerdown', (e) => {
 				if (e.pointerType === 'touch' || e.pointerType === 'pen' || e.pointerType === 'mouse') downHandler(e);
 			});
 			btnUp.addEventListener('pointerup', (e) => {
 				if (e.pointerType === 'touch' || e.pointerType === 'pen' || e.pointerType === 'mouse') upHandler(e);
 			});
-
 			btnUp.addEventListener('touchstart', (e) => {
 				downHandler(e);
 			}, {
@@ -308,8 +283,6 @@ export class InputHandler {
 				passive: false
 			});
 		}
-
-
 		if (btnDown) {
 			const downHandlerD = (ev) => {
 				this.mobile.downPressed = true;
@@ -321,18 +294,15 @@ export class InputHandler {
 				btnDown.classList.remove('active');
 				ev.preventDefault?.();
 			};
-
 			btnDown.addEventListener('mousedown', downHandlerD);
 			btnDown.addEventListener('mouseup', upHandlerD);
 			btnDown.addEventListener('mouseleave', upHandlerD);
-
 			btnDown.addEventListener('pointerdown', (e) => {
 				if (e.pointerType === 'touch' || e.pointerType === 'pen' || e.pointerType === 'mouse') downHandlerD(e);
 			});
 			btnDown.addEventListener('pointerup', (e) => {
 				if (e.pointerType === 'touch' || e.pointerType === 'pen' || e.pointerType === 'mouse') upHandlerD(e);
 			});
-
 			btnDown.addEventListener('touchstart', (e) => {
 				downHandlerD(e);
 			}, {
@@ -355,12 +325,10 @@ export class InputHandler {
 		const left = document.getElementById('leftStick');
 		const right = document.getElementById('rightStick');
 		const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-
 		const setupStick = (el, posKey) => {
 			if (!el) return;
 			const knob = el.querySelector('.stick-knob');
 			if (!knob) return;
-
 			const onPointerDown = (e) => {
 				try {
 					el.setPointerCapture?.(e.pointerId);
@@ -418,12 +386,9 @@ export class InputHandler {
 				const d = Math.hypot(dx, dy);
 				const ndx = dx === 0 && dy === 0 ? 0 : dx * Math.min(1, r / Math.max(d, 0.0001));
 				const ndy = dy === 0 && dx === 0 ? 0 : dy * Math.min(1, r / Math.max(d, 0.0001));
-
 				knob.style.transform = `translate(${ndx}px, ${ndy}px)`;
-
 				const nx = clamp(ndx / r, -1, 1);
 				const ny = clamp(ndy / r, -1, 1);
-
 				if (posKey === 'left') {
 					this.mobile.leftPos.x = nx;
 					this.mobile.leftPos.y = ny;
@@ -432,13 +397,9 @@ export class InputHandler {
 					this.mobile.rightPos.y = ny;
 				}
 			};
-
-			// Prefer pointer events
 			el.addEventListener('pointerdown', onPointerDown);
 			window.addEventListener('pointermove', onPointerMove);
 			window.addEventListener('pointerup', onPointerUp);
-
-			// Fallback for touch events (use touch identifier per-stick to avoid mixing touches)
 			el.addEventListener('touchstart', (ev) => {
 				this.resetAutoRotate();
 				ev.preventDefault();
@@ -463,7 +424,6 @@ export class InputHandler {
 			}, {
 				passive: false
 			});
-
 			el.addEventListener('touchmove', (ev) => {
 				ev.preventDefault();
 				const id = posKey === 'left' ? this.mobile.leftTouchId : this.mobile.rightTouchId;
@@ -478,7 +438,6 @@ export class InputHandler {
 			}, {
 				passive: false
 			});
-
 			el.addEventListener('touchend', (ev) => {
 				ev.preventDefault();
 				for (let i = 0; i < ev.changedTouches.length; i++) {
@@ -502,7 +461,6 @@ export class InputHandler {
 				passive: false
 			});
 		};
-
 		setupStick(left, 'left');
 		setupStick(right, 'right');
 	}

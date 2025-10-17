@@ -34,10 +34,8 @@ export class App {
 		this.renderer = new ArchRenderer(this, canvas);
 		this.ui = new UI(this);
 		this.input = new InputHandler(this, this.renderer);
-
 		this.ui.wireAll();
 		this.loadSample();
-
 		this.updateTitle();
 	}
 
@@ -52,7 +50,6 @@ export class App {
 	deselectNode() {
 		this.selectedNode = null;
 		this.renderer.hideGizmo();
-		// Show empty edit panel when in edit mode but no node is selected
 		if (this.ui.editMode) {
 			this.ui.renderEmptyEditPanel();
 		} else {
@@ -66,16 +63,11 @@ export class App {
 			if (!e.id) e.id = Math.random().toString(36).slice(2, 9);
 		});
 		ArchModel.mapColorsToLegend(this.model.root, this.model.legend);
-
 		const prevId = this.selectedNode?.userData?.id;
 		const found = this.renderer.buildFromArch(this.model, prevId);
 		this.selectedNode = found;
-
 		this.ui.updateLegendDisplay();
-
-
 		this.updateTitle();
-
 		if (this.ui.editMode) {
 			this.ui.renderLegendEditor();
 		}
@@ -83,7 +75,6 @@ export class App {
 
 	updateTitle() {
 		const titleEl = document.getElementById('title');
-
 		if (titleEl) {
 			const titleText = this.model.uiInfo?.title || 'ARCHITECTURE VISUALIZATION';
 			titleEl.textContent = titleText;

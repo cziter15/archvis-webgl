@@ -25,11 +25,9 @@ export class UI {
 			btn.classList.toggle('active', active);
 			btn.textContent = active ? '✖ EXIT EDITOR' : '✏️ EDIT';
 		}
-
 		const editPanel = document.getElementById('editPanel');
 		const legendEditor = document.getElementById('legendEditor');
 		const smooth = document.querySelector('.smoothness-control');
-
 		if (active) {
 			if (editPanel) {
 				editPanel.classList.remove('hidden');
@@ -77,29 +75,22 @@ export class UI {
 	updateLegendDisplay() {
 		const container = document.getElementById('legendItems');
 		if (!container) return;
-
 		container.innerHTML = '';
-
 		if (!this.app.model.legend) {
 			this.app.model.legend = [];
 		}
-
 		const legendContainer = document.getElementById('legendContainer');
 		if (legendContainer) {
 			legendContainer.classList.toggle('hidden', !(this.app.model.legend.length > 0));
 		}
-
 		(this.app.model.legend || []).forEach(entry => {
 			const row = document.createElement('div');
 			row.className = 'legend-entry';
-
 			const swatch = document.createElement('div');
 			swatch.className = 'legend-color';
 			swatch.style.backgroundColor = entry.color;
-
 			const name = document.createElement('div');
 			name.textContent = entry.name;
-
 			row.appendChild(swatch);
 			row.appendChild(name);
 			container.appendChild(row);
@@ -109,20 +100,15 @@ export class UI {
 	renderLegendEditor() {
 		const list = document.getElementById('legendList');
 		if (!list) return;
-
 		this._clearEventListeners(list);
 		list.innerHTML = '';
-
 		if (!this.app.model.legend) {
 			this.app.model.legend = [];
 		}
-
 		(this.app.model.legend || []).forEach((entry, idx) => {
 			if (!entry.id) entry.id = Math.random().toString(36).slice(2, 9);
-
 			const row = document.createElement('div');
 			row.className = 'legend-row';
-
 			if (this.editMode) {
 				row.innerHTML = `
 			  <input type="text" class="legend-name" data-idx="${idx}" value="${entry.name}" />
@@ -135,17 +121,13 @@ export class UI {
 			  <div class="legend-color" style="background:${entry.color};"></div>
 			`;
 			}
-
 			list.appendChild(row);
 		});
-
-		// if there are no legend entries and not in editMode, hide the editor list region
 		const legendEditor = document.getElementById('legendEditor');
 		if (legendEditor) {
 			const hasLegend = (this.app.model.legend || []).length > 0;
 			legendEditor.classList.toggle('hidden', !this.editMode && !hasLegend);
 		}
-
 		if (this.editMode) {
 			this._setupLegendEventListeners(list);
 		}
@@ -162,7 +144,6 @@ export class UI {
 			inp.addEventListener('change', listener);
 			this._addEventListener(inp, 'change', listener);
 		});
-
 		list.querySelectorAll('.legend-swatch').forEach(swatch => {
 			const listener = () => {
 				const i = parseInt(swatch.dataset.idx);
@@ -175,7 +156,6 @@ export class UI {
 			swatch.addEventListener('click', listener);
 			this._addEventListener(swatch, 'click', listener);
 		});
-
 		list.querySelectorAll('.legend-remove').forEach(btn => {
 			const listener = (e) => {
 				const i = parseInt(e.target.dataset.idx);
@@ -191,37 +171,29 @@ export class UI {
 	renderLegendAssignSelect() {
 		const sel = document.getElementById('assignLegendSelect');
 		if (!sel) return;
-
 		this._clearEventListeners(sel);
-
 		sel.innerHTML = '<option value="">-- none --</option>';
-
 		if (!this.app.model.legend) {
 			this.app.model.legend = [];
 		}
-
 		(this.app.model.legend || []).forEach(entry => {
 			const opt = document.createElement('option');
 			opt.value = entry.id;
 			opt.textContent = entry.name;
 			sel.appendChild(opt);
 		});
-
 		const listener = () => {
 			if (!this.app.selectedNode?.userData) return;
 			const id = this.app.selectedNode.userData.id;
 			const node = ArchModel.findById(this.app.model.root, id);
 			if (!node) return;
-
 			if (sel.value) {
 				node.category = sel.value;
 			} else {
 				delete node.category;
 			}
-
 			this.app.rebuild();
 		};
-
 		sel.addEventListener('change', listener);
 		this._addEventListener(sel, 'change', listener);
 	}
@@ -232,18 +204,15 @@ export class UI {
 		input.value = initial || '#00ffff';
 		input.style.cssText = 'position:absolute;opacity:0;width:0;height:0;';
 		document.body.appendChild(input);
-
 		const cleanup = () => {
 			input.remove();
 		};
-
 		input.addEventListener('input', (e) => callback(e.target.value));
 		input.addEventListener('change', (e) => {
 			callback(e.target.value);
 			cleanup();
 		});
 		input.addEventListener('blur', () => setTimeout(cleanup, 100));
-
 		input.click();
 	}
 
@@ -251,16 +220,13 @@ export class UI {
 		const panel = document.getElementById('editPanel');
 		const content = document.getElementById('editContent');
 		if (!panel || !content) return;
-
 		if (!this.editMode || !this.app.selectedNode) {
 			panel.classList.add('hidden');
 			return;
 		}
-
 		panel.classList.remove('hidden');
 		const sceneNode = this.app.selectedNode;
 		const archNode = ArchModel.findById(this.app.model.root, sceneNode.userData.id);
-
 		content.innerHTML = `
 	  <div class="edit-row"><label>Name</label><input type="text" id="editName" value="${archNode?.name || ''}"></div>
 	  <div class="flex-row"><select id="assignLegendSelect" class="assign-legend-select"></select></div>
@@ -270,10 +236,8 @@ export class UI {
 	  <div class="edit-row"><label>Pos Z</label><input type="number" id="editPosZ" step="0.1" value="${sceneNode.position.z.toFixed(2)}"></div>
 	  <div class="edit-actions"><button type="button" class="button small" id="addChildBtn">+ CHILD</button><button type="button" class="button small danger" id="deleteNodeBtn">DELETE</button></div>
 	`;
-
 		this._wireEditInputs(archNode);
 		this.renderLegendAssignSelect();
-
 		const sel = document.getElementById('assignLegendSelect');
 		if (sel && archNode?.category) {
 			sel.value = archNode.category;
@@ -284,8 +248,6 @@ export class UI {
 		const panel = document.getElementById('editPanel');
 		const content = document.getElementById('editContent');
 		if (!panel || !content) return;
-
-		// show the panel via class (avoid inline styles which override .hidden)
 		panel.classList.remove('hidden');
 		panel.setAttribute('aria-hidden', 'false');
 		content.innerHTML = '<div class="empty-edit-msg">Select a node to edit it</div>';
@@ -293,12 +255,10 @@ export class UI {
 
 	updateEditPanelValues() {
 		if (!this.editMode || !this.app.selectedNode) return;
-
 		const sceneNode = this.app.selectedNode;
 		const posX = document.getElementById('editPosX');
 		const posY = document.getElementById('editPosY');
 		const posZ = document.getElementById('editPosZ');
-
 		if (posX && document.activeElement !== posX) posX.value = sceneNode.position.x.toFixed(2);
 		if (posY && document.activeElement !== posY) posY.value = sceneNode.position.y.toFixed(2);
 		if (posZ && document.activeElement !== posZ) posZ.value = sceneNode.position.z.toFixed(2);
@@ -306,7 +266,6 @@ export class UI {
 
 	_wireEditInputs(archNode) {
 		if (!archNode) return;
-
 		const nameIn = document.getElementById('editName');
 		const scaleIn = document.getElementById('editScale');
 		const posX = document.getElementById('editPosX');
@@ -314,16 +273,13 @@ export class UI {
 		const posZ = document.getElementById('editPosZ');
 		const addBtn = document.getElementById('addChildBtn');
 		const delBtn = document.getElementById('deleteNodeBtn');
-
 		const applyChanges = () => {
 			archNode.name = nameIn?.value || archNode.name;
 			archNode.scale = parseFloat(scaleIn?.value) || 1;
 			const pos = [parseFloat(posX?.value) || 0, parseFloat(posY?.value) || 0, parseFloat(posZ?.value) || 0];
 			archNode.pos = pos;
-
 			const sceneNode = this.app.selectedNode;
 			if (sceneNode) sceneNode.position.set(...pos);
-
 			this.app.rebuild();
 		};
 		[nameIn, scaleIn, posX, posY, posZ].forEach(input => {
@@ -333,14 +289,11 @@ export class UI {
 				this._addEventListener(input, 'change', applyChanges);
 			}
 		});
-
 		if (addBtn) {
 			this._clearEventListeners(addBtn);
-
 			const addListener = (e) => {
 				e.preventDefault();
 				e.stopPropagation();
-
 				const newNode = {
 					id: Math.random().toString(36).slice(2, 9),
 					name: 'New Node',
@@ -352,23 +305,19 @@ export class UI {
 					scale: 1,
 					children: []
 				};
-
 				if (!archNode.children) archNode.children = [];
 				archNode.children.push(newNode);
 				this.app.rebuild();
 			};
-
 			addBtn.addEventListener('click', addListener);
 			this._addEventListener(addBtn, 'click', addListener);
 		}
 
 		if (delBtn) {
 			this._clearEventListeners(delBtn);
-
 			const deleteListener = (e) => {
 				e.preventDefault();
 				e.stopPropagation();
-
 				const id = archNode.id;
 				if (id === this.app.model.root.id) {
 					this.addMessage('Cannot delete root node');
@@ -378,7 +327,6 @@ export class UI {
 				this.app.selectedNode = null;
 				this.app.rebuild();
 			};
-
 			delBtn.addEventListener('click', deleteListener);
 			this._addEventListener(delBtn, 'click', deleteListener);
 		}
@@ -389,25 +337,20 @@ export class UI {
 			this.eventListeners.set(element, new Map());
 		}
 		const elementListeners = this.eventListeners.get(element);
-
 		if (!elementListeners.has(event)) {
 			elementListeners.set(event, []);
 		}
-
 		elementListeners.get(event).push(listener);
 	}
 
 	_clearEventListeners(element) {
 		if (!this.eventListeners.has(element)) return;
-
 		const elementListeners = this.eventListeners.get(element);
-
 		elementListeners.forEach((listeners, event) => {
 			listeners.forEach(listener => {
 				element.removeEventListener(event, listener);
 			});
 		});
-
 		this.eventListeners.delete(element);
 	}
 
@@ -415,18 +358,14 @@ export class UI {
 		document.getElementById('editBtn')?.addEventListener('click', () => {
 			this.setEditMode(!this.editMode);
 		});
-
 		this._wireSaveButton();
 		this._wireLoadButton();
 		this._wireSampleButton();
 		this._wireLegendAdder();
 		this._wireSmoothnessControl();
-
-		// mobile action buttons (visible on small screens)
 		const mSave = document.getElementById('mobileSaveBtn');
 		const mLoad = document.getElementById('mobileLoadBtn');
 		const mSample = document.getElementById('mobileSampleBtn');
-
 		if (mSave) {
 			mSave.addEventListener('click', () => document.getElementById('saveBtn')?.click());
 		}
@@ -441,9 +380,7 @@ export class UI {
 	_wireSaveButton() {
 		const saveBtn = document.getElementById('saveBtn');
 		if (!saveBtn) return;
-
 		this._clearEventListeners(saveBtn);
-
 		const listener = () => {
 			if (!this.app.model.root?.name || this.app.model.root.name === 'Empty Architecture') {
 				this.addMessage('No architecture to save');
@@ -462,7 +399,6 @@ export class UI {
 			document.body.removeChild(a);
 			URL.revokeObjectURL(url);
 		};
-
 		saveBtn.addEventListener('click', listener);
 		this._addEventListener(saveBtn, 'click', listener);
 	}
@@ -471,18 +407,14 @@ export class UI {
 		const loadBtn = document.getElementById('loadBtn');
 		const fileInput = document.getElementById('xmlFileInput');
 		if (!loadBtn || !fileInput) return;
-
 		this._clearEventListeners(loadBtn);
 		this._clearEventListeners(fileInput);
-
 		const loadListener = () => fileInput.click();
 		loadBtn.addEventListener('click', loadListener);
 		this._addEventListener(loadBtn, 'click', loadListener);
-
 		const fileListener = (e) => {
 			const f = e.target.files?.[0];
 			if (!f) return;
-
 			const reader = new FileReader();
 			reader.onload = (event) => {
 				try {
@@ -504,9 +436,7 @@ export class UI {
 	_wireSampleButton() {
 		const sampleBtn = document.getElementById('sampleBtn');
 		if (!sampleBtn) return;
-
 		this._clearEventListeners(sampleBtn);
-
 		const listener = () => {
 			try {
 				this.app.model = ArchModel.createSample();
@@ -517,7 +447,6 @@ export class UI {
 				this.addMessage('Sample load failed');
 			}
 		};
-
 		sampleBtn.addEventListener('click', listener);
 		this._addEventListener(sampleBtn, 'click', listener);
 	}
@@ -526,27 +455,22 @@ export class UI {
 		const newLegendName = document.getElementById('newLegendName');
 		const newLegendSwatch = document.getElementById('newLegendSwatch');
 		const addLegendBtn = document.getElementById('addLegendBtn');
-
 		if (newLegendSwatch) {
 			this._clearEventListeners(newLegendSwatch);
-
 			const swatchListener = () => {
 				this.openColorPicker(newLegendSwatch, newLegendSwatch.style.background || '#00ffff', (color) => {
 					newLegendSwatch.style.background = color;
 				});
 			};
-
 			newLegendSwatch.addEventListener('click', swatchListener);
 			this._addEventListener(newLegendSwatch, 'click', swatchListener);
 		}
 
 		if (addLegendBtn) {
 			this._clearEventListeners(addLegendBtn);
-
 			const addListener = (e) => {
 				e.preventDefault();
 				e.stopPropagation();
-
 				const name = newLegendName?.value?.trim();
 				if (!name) {
 					this.addMessage('Legend name required');
@@ -564,7 +488,6 @@ export class UI {
 				this.renderLegendAssignSelect();
 				this.app.rebuild();
 			};
-
 			addLegendBtn.addEventListener('click', addListener);
 			this._addEventListener(addLegendBtn, 'click', addListener);
 		}
@@ -573,14 +496,11 @@ export class UI {
 	_wireSmoothnessControl() {
 		const smoothSlider = document.getElementById('smoothnessSlider');
 		if (!smoothSlider) return;
-
 		smoothSlider.min = "0.8";
 		smoothSlider.max = "0.99";
 		smoothSlider.step = "0.01";
 		smoothSlider.value = 0.95;
-
 		this._clearEventListeners(smoothSlider);
-
 		const listener = (e) => {
 			const value = parseFloat(e.target.value);
 			this.app.renderer.smoothFactors = {
@@ -589,7 +509,6 @@ export class UI {
 				general: value
 			};
 		};
-
 		smoothSlider.addEventListener('input', listener);
 		this._addEventListener(smoothSlider, 'input', listener);
 	}
