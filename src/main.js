@@ -1,4 +1,3 @@
-import { App } from './app.js';
 /*
  *	Copyright (c) 2025-2026, Krzysztof Strehlau
  *
@@ -8,8 +7,12 @@ import { App } from './app.js';
  *	https://github.com/cziter15/archvis-webgl/blob/main/LICENSE
  */
 
+import {
+	App
+} from './app.js';
+
 document.addEventListener('DOMContentLoaded', () => {
-  const app = new App();
-  window.mainApp = app;
-  app.init();
+	const app = new App();
+	window.mainApp = app;
+	app.init();
 });
