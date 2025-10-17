@@ -13,7 +13,7 @@
   </a>
 </p>
 
-<img src="./header.png" />
+<img src="./public/header.png" />
 
 ## ▶️ Quick start
 
