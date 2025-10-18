@@ -16,6 +16,26 @@ export class UI {
 		this.app = app;
 		this.editMode = false;
 		this.eventListeners = new Map();
+
+		// subscribe to model events when possible
+		if (this.app?.model?.onChange) {
+			this.app.model.onChange(() => {
+				this.updateLegendDisplay();
+				if (this.editMode) this.renderLegendEditor();
+				this.populateEditPanel();
+				// also keep the document/UI title in sync with model.uiInfo.title
+				this._updateTitleFromModel();
+			});
+		}
+		if (this.app?.model?.onSelect) {
+			this.app.model.onSelect((id) => {
+				// when selection changes, update edit panel
+				this.populateEditPanel();
+			});
+		}
+
+		// wire UI event handlers immediately; wireAll is defensive and checks for elements
+		this.wireAll();
 	}
 
 	setEditMode(active) {
@@ -48,7 +68,9 @@ export class UI {
 			if (smooth) smooth.classList.remove('hidden');
 			this._setButtonsVisibility(['saveBtn', 'loadBtn', 'sampleBtn'], true);
 			this.addMessage('Edit mode disabled');
-			if (this.app?.selectedNode) {
+			const selId = this.app?.model?.getSelected ? this.app.model.getSelected() : null;
+			const selNode = selId ? this.app.renderer.getNodeById(selId) : null;
+			if (selNode) {
 				this.app.deselectNode();
 			}
 		}
@@ -150,7 +172,11 @@ export class UI {
 				this.openColorPicker(swatch, this.app.model.legend[i].color, (color) => {
 					this.app.model.legend[i].color = color;
 					this.updateLegendDisplay();
-					this.app.rebuild();
+					if (this.app.model && typeof this.app.model.update === 'function') {
+						this.app.model.update(() => {}, { type: 'legend-changed' }, { debounceMs: 60 });
+					} else if (this.app.model && typeof this.app.model.emitChange === 'function') {
+						this.app.model.emitChange({ type: 'legend-changed' });
+					}
 				});
 			};
 			swatch.addEventListener('click', listener);
@@ -162,6 +188,11 @@ export class UI {
 				this.app.model.legend.splice(i, 1);
 				this.updateLegendDisplay();
 				this.renderLegendAssignSelect();
+				if (this.app.model && typeof this.app.model.update === 'function') {
+					this.app.model.update(() => {}, { type: 'legend-changed' }, { debounceMs: 60 });
+				} else if (this.app.model && typeof this.app.model.emitChange === 'function') {
+					this.app.model.emitChange({ type: 'legend-changed' });
+				}
 			};
 			btn.addEventListener('click', listener);
 			this._addEventListener(btn, 'click', listener);
@@ -183,8 +214,10 @@ export class UI {
 			sel.appendChild(opt);
 		});
 		const listener = () => {
-			if (!this.app.selectedNode?.userData) return;
-			const id = this.app.selectedNode.userData.id;
+			const selId = this.app?.model?.getSelected ? this.app.model.getSelected() : null;
+			const sceneNode = selId ? this.app.renderer.getNodeById(selId) : null;
+			if (!sceneNode?.userData) return;
+			const id = sceneNode.userData.id;
 			const node = ArchModel.findById(this.app.model.root, id);
 			if (!node) return;
 			if (sel.value) {
@@ -192,7 +225,7 @@ export class UI {
 			} else {
 				delete node.category;
 			}
-			this.app.rebuild();
+			if (this.app.model && typeof this.app.model.emitChange === 'function') this.app.model.emitChange({ type: 'legend-changed' });
 		};
 		sel.addEventListener('change', listener);
 		this._addEventListener(sel, 'change', listener);
@@ -242,12 +275,13 @@ export class UI {
 		const panel = document.getElementById('editPanel');
 		const content = document.getElementById('editContent');
 		if (!panel || !content) return;
-		if (!this.editMode || !this.app.selectedNode) {
+		const selId = this.app?.model?.getSelected ? this.app.model.getSelected() : null;
+		const sceneNode = selId ? this.app.renderer.getNodeById(selId) : null;
+		if (!this.editMode || !sceneNode) {
 			panel.classList.add('hidden');
 			return;
 		}
 		panel.classList.remove('hidden');
-		const sceneNode = this.app.selectedNode;
 		const archNode = ArchModel.findById(this.app.model.root, sceneNode.userData.id);
 		content.innerHTML = `
 	  <div class="edit-row"><label>Name</label><input type="text" id="editName" value="${archNode?.name || ''}"></div>
@@ -258,7 +292,7 @@ export class UI {
 	  <div class="edit-row"><label>Pos Z</label><input type="number" id="editPosZ" step="0.1" value="${sceneNode.position.z.toFixed(2)}"></div>
 	  <div class="edit-actions"><button type="button" class="button small" id="addChildBtn">+ CHILD</button><button type="button" class="button small danger" id="deleteNodeBtn">DELETE</button></div>
 	`;
-		this._wireEditInputs(archNode);
+		this._wireEditInputs(archNode, sceneNode);
 		this.renderLegendAssignSelect();
 		const sel = document.getElementById('assignLegendSelect');
 		if (sel && archNode?.category) {
@@ -276,8 +310,10 @@ export class UI {
 	}
 
 	updateEditPanelValues() {
-		if (!this.editMode || !this.app.selectedNode) return;
-		const sceneNode = this.app.selectedNode;
+		if (!this.editMode) return;
+		const selId = this.app?.model?.getSelected ? this.app.model.getSelected() : null;
+		const sceneNode = selId ? this.app.renderer.getNodeById(selId) : null;
+		if (!sceneNode) return;
 		const posX = document.getElementById('editPosX');
 		const posY = document.getElementById('editPosY');
 		const posZ = document.getElementById('editPosZ');
@@ -286,7 +322,7 @@ export class UI {
 		if (posZ && document.activeElement !== posZ) posZ.value = sceneNode.position.z.toFixed(2);
 	}
 
-	_wireEditInputs(archNode) {
+	_wireEditInputs(archNode, sceneNode) {
 		if (!archNode) return;
 		const nameIn = document.getElementById('editName');
 		const scaleIn = document.getElementById('editScale');
@@ -296,13 +332,17 @@ export class UI {
 		const addBtn = document.getElementById('addChildBtn');
 		const delBtn = document.getElementById('deleteNodeBtn');
 		const applyChanges = () => {
+			const oldName = archNode.name;
 			archNode.name = nameIn?.value || archNode.name;
 			archNode.scale = parseFloat(scaleIn?.value) || 1;
 			const pos = [parseFloat(posX?.value) || 0, parseFloat(posY?.value) || 0, parseFloat(posZ?.value) || 0];
 			archNode.pos = pos;
-			const sceneNode = this.app.selectedNode;
 			if (sceneNode) sceneNode.position.set(...pos);
-			this.app.rebuild();
+			if (this.app.model && typeof this.app.model.update === 'function') {
+				this.app.model.update(() => {}, { type: 'node-updated', id: archNode.id, changes: { pos, name: archNode.name } }, { debounceMs: 60 });
+			} else if (this.app.model && typeof this.app.model.emitChange === 'function') {
+				this.app.model.emitChange({ type: 'node-updated', id: archNode.id, changes: { pos, name: archNode.name } });
+			}
 		};
 		[nameIn, scaleIn, posX, posY, posZ].forEach(input => {
 			if (input) {
@@ -329,7 +369,7 @@ export class UI {
 				};
 				if (!archNode.children) archNode.children = [];
 				archNode.children.push(newNode);
-				this.app.rebuild();
+				if (this.app.model && typeof this.app.model.emitChange === 'function') this.app.model.emitChange({ type: 'node-added', id: newNode.id });
 			};
 			addBtn.addEventListener('click', addListener);
 			this._addEventListener(addBtn, 'click', addListener);
@@ -346,8 +386,8 @@ export class UI {
 					return;
 				}
 				ArchModel.deleteById(this.app.model.root, id);
-				this.app.selectedNode = null;
-				this.app.rebuild();
+				if (this.app.model && typeof this.app.model.setSelected === 'function') this.app.model.setSelected(null);
+				if (this.app.model && typeof this.app.model.emitChange === 'function') this.app.model.emitChange({ type: 'node-removed', id });
 			};
 			delBtn.addEventListener('click', deleteListener);
 			this._addEventListener(delBtn, 'click', deleteListener);
@@ -397,6 +437,8 @@ export class UI {
 		if (mSample) {
 			mSample.addEventListener('click', () => document.getElementById('sampleBtn')?.click());
 		}
+		// ensure title is in sync immediately when wiring UI
+		this._updateTitleFromModel();
 	}
 
 	_wireSaveButton() {
@@ -440,8 +482,17 @@ export class UI {
 			const reader = new FileReader();
 			reader.onload = (event) => {
 				try {
-					this.app.model = ArchModel.fromXml(event.target.result);
-					this.app.rebuild();
+					const parsed = ArchModel.fromXml(event.target.result);
+					if (this.app.model && this.app.model.update) {
+						this.app.model.update((m) => {
+							m.root = parsed.root;
+							m.legend = parsed.legend;
+							m.uiInfo = parsed.uiInfo;
+						}, { type: 'rebuild' });
+					} else {
+						this.app.model = ArchModel.createObservable(parsed);
+						if (this.app.model && typeof this.app.model.emitChange === 'function') this.app.model.emitChange({ type: 'rebuild' });
+					}
 					this.updateLegendDisplay();
 					this.addMessage('Architecture loaded');
 				} catch (err) {
@@ -460,16 +511,25 @@ export class UI {
 		const sampleBtn = document.getElementById('sampleBtn');
 		if (!sampleBtn) return;
 		this._clearEventListeners(sampleBtn);
-		const listener = () => {
-			try {
-				this.app.model = ArchModel.createSample();
-				this.app.rebuild();
-				this.updateLegendDisplay();
-				this.addMessage('Sample loaded');
-			} catch (err) {
-				this.addMessage('Sample load failed');
-			}
-		};
+				const listener = () => {
+					try {
+						const sample = ArchModel.createSample();
+						if (this.app.model && this.app.model.update) {
+							this.app.model.update((m) => {
+								m.root = sample.root;
+								m.legend = sample.legend;
+								m.uiInfo = sample.uiInfo;
+							}, { type: 'rebuild' });
+						} else {
+							this.app.model = ArchModel.createObservable(sample);
+							if (this.app.model && typeof this.app.model.emitChange === 'function') this.app.model.emitChange({ type: 'rebuild' });
+						}
+						this.updateLegendDisplay();
+						this.addMessage('Sample loaded');
+					} catch (err) {
+						this.addMessage('Sample load failed');
+					}
+				};
 		sampleBtn.addEventListener('click', listener);
 		this._addEventListener(sampleBtn, 'click', listener);
 	}
@@ -509,7 +569,7 @@ export class UI {
 				this.updateLegendDisplay();
 				this.renderLegendEditor();
 				this.renderLegendAssignSelect();
-				this.app.rebuild();
+				if (this.app.model && typeof this.app.model.emitChange === 'function') this.app.model.emitChange({ type: 'legend-changed' });
 			};
 			addLegendBtn.addEventListener('click', addListener);
 			this._addEventListener(addLegendBtn, 'click', addListener);
@@ -534,5 +594,13 @@ export class UI {
 		};
 		smoothSlider.addEventListener('input', listener);
 		this._addEventListener(smoothSlider, 'input', listener);
+	}
+
+	// keep DOM title in sync with model.uiInfo.title
+	_updateTitleFromModel() {
+		const titleEl = document.getElementById('title');
+		if (!titleEl) return;
+		const titleText = this.app?.model?.uiInfo?.title || 'ARCHITECTURE VISUALIZATION';
+		titleEl.textContent = titleText;
 	}
 }

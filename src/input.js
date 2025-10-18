@@ -139,11 +139,11 @@ export class InputHandler {
 		this.renderer.gizmoPointerUp();
 		if (wasGizmoDragging) {
 			document.body.classList.remove('grabbing');
-			if (this.app.selectedNode) {
-				const archNode = ArchModel.findById(this.app.model.root, this.app.selectedNode.userData.id);
-				if (archNode) {
-					archNode.pos = this.app.selectedNode.position.toArray();
-				}
+			const selId = this.app?.model?.getSelected ? this.app.model.getSelected() : null;
+			const sceneNode = selId ? this.renderer.getNodeById(selId) : null;
+			if (sceneNode) {
+				const archNode = ArchModel.findById(this.app.model.root, sceneNode.userData.id);
+				if (archNode) archNode.pos = sceneNode.position.toArray();
 			}
 		}
 	}
@@ -192,7 +192,9 @@ export class InputHandler {
 		this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
 		this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 		this.raycaster.setFromCamera(this.mouse, this.renderer.camera);
-		this.renderer.gizmoPointerMove(this.raycaster, this.app.selectedNode);
+		const selId = this.app?.model?.getSelected ? this.app.model.getSelected() : null;
+		const sceneNode = selId ? this.renderer.getNodeById(selId) : null;
+		this.renderer.gizmoPointerMove(this.raycaster, sceneNode);
 	}
 
 	_handleClick(e) {

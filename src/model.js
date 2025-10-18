@@ -208,4 +208,61 @@ export class ArchModel {
   <ui-info><title>MICROSERVICES ARCHITECTURE</title></ui-info>
 </arch>`);
 	}
+
+	// Make a plain model object observable: add simple listener APIs
+	static createObservable(model) {
+		if (!model) model = this.createEmpty();
+		if (model.__isObservable) return model;
+		model.__isObservable = true;
+		model._changeListeners = new Set();
+		model._selectListeners = new Set();
+		model._debounceTimers = new Map();
+		model._lastDebouncePayload = new Map();
+		model.onChange = (fn) => model._changeListeners.add(fn);
+		model.offChange = (fn) => model._changeListeners.delete(fn);
+		model.emitChange = (payload) => {
+			model._changeListeners.forEach(fn => {
+				try { fn(payload); } catch (e) { console.error('change listener error', e); }
+			});
+		};
+		model.onSelect = (fn) => model._selectListeners.add(fn);
+		model.offSelect = (fn) => model._selectListeners.delete(fn);
+		model.emitSelect = (id) => {
+			model._selectListeners.forEach(fn => {
+				try { fn(id); } catch (e) { console.error('select listener error', e); }
+			});
+		};
+		model.setSelected = (id) => {
+			model.selected = id;
+			model.emitSelect(id);
+		};
+		model.getSelected = () => model.selected || null;
+		// helper to update model in-place and emit a single payload
+		model.update = (updater, payload = { type: 'rebuild' }, opts = {}) => {
+			try {
+				if (typeof updater === 'function') updater(model);
+				const debounceMs = opts.debounceMs || 0;
+				if (!debounceMs) {
+					model.emitChange(payload);
+					return;
+				}
+				const key = payload && payload.type ? payload.type : '__default';
+				// store last payload for this key
+				model._lastDebouncePayload.set(key, payload);
+				// clear existing timer
+				const prev = model._debounceTimers.get(key);
+				if (prev) clearTimeout(prev);
+				const t = setTimeout(() => {
+					const p = model._lastDebouncePayload.get(key) || payload;
+					model._debounceTimers.delete(key);
+					model._lastDebouncePayload.delete(key);
+					model.emitChange(p);
+				}, debounceMs);
+				model._debounceTimers.set(key, t);
+			} catch (e) {
+				console.error('model.update error', e);
+			}
+		};
+		return model;
+	}
 }

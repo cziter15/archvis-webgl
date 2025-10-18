@@ -22,77 +22,34 @@ import {
 
 export class App {
 	constructor() {
-		this.model = ArchModel.createEmpty();
-		this.selectedNode = null;
+		this.model = ArchModel.createObservable(ArchModel.createEmpty());
 		this.ui = null;
 		this.renderer = null;
 		this.input = null;
 	}
 
 	init() {
+		// create observable model first so renderer/ui/input subscribe to the right instance
+		this.model = ArchModel.createObservable(ArchModel.createRoot());
 		const canvas = document.getElementById('canvas');
 		this.renderer = new ArchRenderer(this, canvas);
 		this.ui = new UI(this);
 		this.input = new InputHandler(this, this.renderer);
-		this.ui.wireAll();
-		// Start with a single root node instead of loading the sample automatically
-		this.model = ArchModel.createRoot();
-		this.rebuild();
+		// let renderer and ui react to model events (they subscribe themselves)
+		// emit an initial rebuild so renderer and UI can sync
+		if (this.model && typeof this.model.emitChange === 'function') this.model.emitChange({ type: 'rebuild' });
 		this.renderer.startLoop(this.input.inputState, this.input.keys, this.input.mobile);
 		this.ui.updateLegendDisplay();
-		this.updateTitle();
 	}
 
 	selectNode(id, sceneNode) {
-		this.selectedNode = sceneNode;
-		if (this.ui.editMode) {
-			this.renderer.showGizmoAt(sceneNode);
-			this.ui.populateEditPanel();
-		}
+		// only update model selection; renderer and ui handle visuals
+		if (this.model && typeof this.model.setSelected === 'function') this.model.setSelected(id);
 	}
 
 	deselectNode() {
-		this.selectedNode = null;
-		this.renderer.hideGizmo();
-		if (this.ui.editMode) {
-			this.ui.renderEmptyEditPanel();
-		} else {
-			this.ui.populateEditPanel();
-		}
+		if (this.model && typeof this.model.setSelected === 'function') this.model.setSelected(null);
 	}
 
-	rebuild() {
-		ArchModel.assignIds(this.model.root);
-		this.model.legend?.forEach(e => {
-			if (!e.id) e.id = Math.random().toString(36).slice(2, 9);
-		});
-		ArchModel.mapColorsToLegend(this.model.root, this.model.legend);
-		const prevId = this.selectedNode?.userData?.id;
-		const found = this.renderer.buildFromArch(this.model, prevId);
-		this.selectedNode = found;
-		this.ui.updateLegendDisplay();
-		this.updateTitle();
-		if (this.ui.editMode) {
-			this.ui.renderLegendEditor();
-		}
-	}
 
-	updateTitle() {
-		const titleEl = document.getElementById('title');
-		if (titleEl) {
-			const titleText = this.model.uiInfo?.title || 'ARCHITECTURE VISUALIZATION';
-			titleEl.textContent = titleText;
-		}
-	}
-
-	loadSample() {
-		this.model = ArchModel.createSample();
-		this.rebuild();
-		this.renderer.startLoop(this.input.inputState, this.input.keys, this.input.mobile);
-		this.ui.addMessage('Sample loaded');
-	}
-
-	onFrameUpdate() {
-		this.ui.updateEditPanelValues();
-	}
 }

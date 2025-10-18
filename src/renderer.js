@@ -47,6 +47,96 @@ export class ArchRenderer {
 			general: 0.95
 		};
 		this.textCache = new Map();
+
+		// subscribe to model events if available
+		if (this.app?.model?.onChange) {
+			this.app.model.onChange((payload) => {
+				// payload-aware updates: support partial updates for node moves/names
+				try {
+					if (!payload || payload.type === 'rebuild') {
+						// ensure model ids and colors are prepared before rebuilding
+						ArchModel.assignIds(this.app.model.root);
+						this.app.model.legend?.forEach(e => { if (!e.id) e.id = Math.random().toString(36).slice(2, 9); });
+						ArchModel.mapColorsToLegend(this.app.model.root, this.app.model.legend);
+						const prevId = this.app?.model?.getSelected ? this.app.model.getSelected() : this.selectedId;
+						this.buildFromArch(this.app.model, prevId);
+						return;
+					}
+					if (payload.type === 'node-updated' && payload.id) {
+						const sceneNode = this.getNodeById(payload.id);
+						if (sceneNode) {
+							// position update
+							if (payload.changes && payload.changes.pos) {
+								sceneNode.position.set(...payload.changes.pos);
+								// update lines connected to this node
+								this.lines.forEach(line => {
+									const startId = line.userData.startId;
+									const endId = line.userData.endId;
+									if (startId === payload.id || endId === payload.id) {
+										const startNode = startId ? this.getNodeById(startId) : null;
+										const endNode = endId ? this.getNodeById(endId) : null;
+										const arr = line.geometry.attributes.position.array;
+										if (startNode) {
+											arr[0] = startNode.position.x;
+											arr[1] = startNode.position.y;
+											arr[2] = startNode.position.z;
+										}
+										if (endNode) {
+											arr[3] = endNode.position.x;
+											arr[4] = endNode.position.y;
+											arr[5] = endNode.position.z;
+										}
+										line.geometry.attributes.position.needsUpdate = true;
+									}
+								});
+							}
+							// name update: replace text mesh
+							if (payload.changes && payload.changes.name) {
+								const newText = this._createTextMesh(payload.changes.name, payload.changes.color || 0x00ffff);
+								// find existing text (assumed to be second child)
+								if (sceneNode.children[1]) {
+									sceneNode.remove(sceneNode.children[1]);
+								}
+								newText.position.y = sceneNode.userData?.scale ? 1.5 * sceneNode.userData.scale : 1.5;
+								sceneNode.add(newText);
+							}
+							return;
+						}
+						// if not found, fallback to full rebuild
+						const prevId = this.selectedId;
+						this.buildFromArch(this.app.model, prevId);
+						return;
+					}
+					// types that currently require a full rebuild: node-added, node-removed, legend-changed
+					if (['node-added', 'node-removed', 'legend-changed'].includes(payload.type)) {
+						const prevId = this.selectedId;
+						this.buildFromArch(this.app.model, prevId);
+						return;
+					}
+					// unknown payload: fallback to full rebuild
+					const prevId2 = this.selectedId;
+					this.buildFromArch(this.app.model, prevId2);
+				} catch (err) {
+					console.error('Error handling model change payload', err);
+					const prevId = this.selectedId;
+					this.buildFromArch(this.app.model, prevId);
+				}
+			});
+		}
+		if (this.app?.model?.onSelect) {
+			this.app.model.onSelect((id) => {
+				// reflect selection in renderer
+				this.selectedId = id;
+				// only show gizmo when UI is in edit mode
+				const node = id ? this.getNodeById(id) : null;
+				if (this.app?.ui?.editMode) {
+					if (node) this.showGizmoAt(node);
+					else this.hideGizmo();
+				} else {
+					this.hideGizmo();
+				}
+			});
+		}
 	}
 
 	_setupLighting() {
@@ -451,10 +541,13 @@ export class ArchRenderer {
 			this.camera.lookAt(inputState.currentX, inputState.currentY, inputState.currentZ);
 			this.update(frame);
 			this.render();
-			if (this.app.selectedNode) {
-				this.updateGizmoPos(this.app.selectedNode);
-				this.app.onFrameUpdate?.();
-			}
+			const selId = this.app?.model?.getSelected ? this.app.model.getSelected() : null;
+			const selNode = selId ? this.getNodeById(selId) : null;
+				if (selNode) {
+					this.updateGizmoPos(selNode);
+					// update UI edit panel directly if UI exists
+					this.app?.ui?.updateEditPanelValues?.();
+				}
 		};
 		loop();
 	}
