@@ -35,7 +35,11 @@ export class App {
 		this.ui = new UI(this);
 		this.input = new InputHandler(this, this.renderer);
 		this.ui.wireAll();
-		this.loadSample();
+		// Start with a single root node instead of loading the sample automatically
+		this.model = ArchModel.createRoot();
+		this.rebuild();
+		this.renderer.startLoop(this.input.inputState, this.input.keys, this.input.mobile);
+		this.ui.updateLegendDisplay();
 		this.updateTitle();
 	}
 

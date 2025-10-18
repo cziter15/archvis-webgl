@@ -167,6 +167,21 @@ export class ArchModel {
 		};
 	}
 
+	static createRoot() {
+		return {
+			root: {
+				name: 'root',
+				pos: [0, 0, 0],
+				scale: 1,
+				children: []
+			},
+			legend: [],
+			uiInfo: {
+				title: 'ARCHITECTURE VISUALIZATION'
+			}
+		};
+	}
+
 	static createSample() {
 		return this.fromXml(`<?xml version="1.0" encoding="UTF-8"?>
 <arch>
