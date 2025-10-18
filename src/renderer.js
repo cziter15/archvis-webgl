@@ -48,13 +48,10 @@ export class ArchRenderer {
 		};
 		this.textCache = new Map();
 
-		// subscribe to model events if available
 		if (this.app?.model?.onChange) {
 			this.app.model.onChange((payload) => {
-				// payload-aware updates: support partial updates for node moves/names
 				try {
 					if (!payload || payload.type === 'rebuild') {
-						// ensure model ids and colors are prepared before rebuilding
 						ArchModel.assignIds(this.app.model.root);
 						this.app.model.legend?.forEach(e => { if (!e.id) e.id = Math.random().toString(36).slice(2, 9); });
 						ArchModel.mapColorsToLegend(this.app.model.root, this.app.model.legend);
@@ -65,10 +62,8 @@ export class ArchRenderer {
 					if (payload.type === 'node-updated' && payload.id) {
 						const sceneNode = this.getNodeById(payload.id);
 						if (sceneNode) {
-							// position update
 							if (payload.changes && payload.changes.pos) {
 								sceneNode.position.set(...payload.changes.pos);
-								// update lines connected to this node
 								this.lines.forEach(line => {
 									const startId = line.userData.startId;
 									const endId = line.userData.endId;
@@ -90,10 +85,8 @@ export class ArchRenderer {
 									}
 								});
 							}
-							// name update: replace text mesh
 							if (payload.changes && payload.changes.name) {
 								const newText = this._createTextMesh(payload.changes.name, payload.changes.color || 0x00ffff);
-								// find existing text (assumed to be second child)
 								if (sceneNode.children[1]) {
 									sceneNode.remove(sceneNode.children[1]);
 								}
@@ -102,18 +95,31 @@ export class ArchRenderer {
 							}
 							return;
 						}
-						// if not found, fallback to full rebuild
 						const prevId = this.selectedId;
 						this.buildFromArch(this.app.model, prevId);
 						return;
 					}
-					// types that currently require a full rebuild: node-added, node-removed, legend-changed
-					if (['node-added', 'node-removed', 'legend-changed'].includes(payload.type)) {
+					if (payload.type === 'node-added' && payload.id) {
+						try {
+							const newNode = ArchModel.findById(this.app.model.root, payload.id);
+							if (newNode) {
+								this.addNodeToScene(newNode, payload.parentId);
+								return;
+							}
+						} catch (e) {}
+						const prevIdA = this.selectedId;
+						this.buildFromArch(this.app.model, prevIdA);
+						return;
+					}
+					if (payload.type === 'node-removed' && payload.id) {
+						this.removeNodeFromScene(payload.id);
+						return;
+					}
+					if (payload.type === 'legend-changed') {
 						const prevId = this.selectedId;
 						this.buildFromArch(this.app.model, prevId);
 						return;
 					}
-					// unknown payload: fallback to full rebuild
 					const prevId2 = this.selectedId;
 					this.buildFromArch(this.app.model, prevId2);
 				} catch (err) {
@@ -125,9 +131,7 @@ export class ArchRenderer {
 		}
 		if (this.app?.model?.onSelect) {
 			this.app.model.onSelect((id) => {
-				// reflect selection in renderer
 				this.selectedId = id;
-				// only show gizmo when UI is in edit mode
 				const node = id ? this.getNodeById(id) : null;
 				if (this.app?.ui?.editMode) {
 					if (node) this.showGizmoAt(node);
@@ -312,6 +316,92 @@ export class ArchRenderer {
 		this.scene.add(group);
 		this.nodes.push(group);
 		return group;
+	}
+
+	addNodeToScene(node, parentId) {
+		// create scene node and connect to parent if present
+		const sceneNode = this.createNode(node);
+		// create line to parent if parentId provided
+		let parentNode = null;
+		if (parentId) parentNode = this.getNodeById(parentId);
+		else {
+			// try to find parent by scanning model tree (parent might exist in model)
+			const parentModel = this._findParentModel(this.app.model.root, node.id);
+			if (parentModel) parentNode = this.getNodeById(parentModel.id);
+		}
+		if (parentNode) {
+			this.createLine(parentNode.position.toArray(), sceneNode.position.toArray(), parentNode.userData.id, sceneNode.userData.id, parentNode.userData?.color || ArchModel.getColor(parentNode.userData || {}, this.app.model.legend));
+		} else {
+			// if no parent, attach to root position
+			if (this.app.model.root) {
+				this.createLine(this.app.model.root.pos, sceneNode.position.toArray(), this.app.model.root.id, sceneNode.userData.id, ArchModel.getColor(this.app.model.root, this.app.model.legend));
+			}
+		}
+		return sceneNode;
+	}
+
+	removeNodeFromScene(id) {
+		// remove node and any lines connected to it
+		const node = this.getNodeById(id);
+		if (node) {
+			// remove connected lines
+			const toRemove = this.lines.filter(l => l.userData.startId === id || l.userData.endId === id);
+			toRemove.forEach(line => {
+				this.scene.remove(line);
+				const idx = this.lines.indexOf(line);
+				if (idx !== -1) this.lines.splice(idx, 1);
+			});
+			// remove descendant lines/nodes
+			const descendants = this._collectDescendantIds(id);
+			descendants.forEach(cid => {
+				const cnode = this.getNodeById(cid);
+				if (cnode) {
+					this.scene.remove(cnode);
+					const ni = this.nodes.indexOf(cnode);
+					if (ni !== -1) this.nodes.splice(ni, 1);
+				}
+				const childLines = this.lines.filter(l => l.userData.startId === cid || l.userData.endId === cid);
+				childLines.forEach(line => {
+					this.scene.remove(line);
+					const li = this.lines.indexOf(line);
+					if (li !== -1) this.lines.splice(li, 1);
+				});
+			});
+			// finally remove the node itself
+			this.scene.remove(node);
+			const idx = this.nodes.indexOf(node);
+			if (idx !== -1) this.nodes.splice(idx, 1);
+		}
+		// if selection was removed, clear selection
+		if (this.selectedId === id) {
+			this.selectedId = null;
+			if (this.app?.model?.setSelected) this.app.model.setSelected(null);
+			this.hideGizmo();
+		}
+	}
+
+	_collectDescendantIds(id) {
+		const out = [];
+		const collect = (m) => {
+			(m.children || []).forEach(c => {
+				out.push(c.id);
+				collect(c);
+			});
+		};
+		const parent = ArchModel.findById(this.app.model.root, id);
+		if (!parent) return out;
+		collect(parent);
+		return out;
+	}
+
+	_findParentModel(root, childId) {
+		if (!root) return null;
+		if ((root.children || []).some(c => c.id === childId)) return root;
+		for (const c of (root.children || [])) {
+			const found = this._findParentModel(c, childId);
+			if (found) return found;
+		}
+		return null;
 	}
 	createLine(startPos, endPos, startId, endId, color) {
 		const geo = new THREE.BufferGeometry();

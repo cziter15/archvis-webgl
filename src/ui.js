@@ -369,7 +369,7 @@ export class UI {
 				};
 				if (!archNode.children) archNode.children = [];
 				archNode.children.push(newNode);
-				if (this.app.model && typeof this.app.model.emitChange === 'function') this.app.model.emitChange({ type: 'node-added', id: newNode.id });
+				if (this.app.model && typeof this.app.model.emitChange === 'function') this.app.model.emitChange({ type: 'node-added', id: newNode.id, parentId: archNode.id });
 			};
 			addBtn.addEventListener('click', addListener);
 			this._addEventListener(addBtn, 'click', addListener);

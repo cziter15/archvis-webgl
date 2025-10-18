@@ -332,11 +332,8 @@ export class InputHandler {
 			const knob = el.querySelector('.stick-knob');
 			if (!knob) return;
 			const onPointerDown = (e) => {
-				try {
-					el.setPointerCapture?.(e.pointerId);
-				} catch (err) {}
+				try { el.setPointerCapture?.(e.pointerId); } catch (err) {}
 				this.resetAutoRotate();
-				// assign pointer only if slot free
 				if (posKey === 'left') {
 					if (this.mobile.leftTouchId == null) this.mobile.leftTouchId = e.pointerId;
 					else return;

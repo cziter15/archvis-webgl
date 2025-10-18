@@ -29,21 +29,17 @@ export class App {
 	}
 
 	init() {
-		// create observable model first so renderer/ui/input subscribe to the right instance
 		this.model = ArchModel.createObservable(ArchModel.createRoot());
 		const canvas = document.getElementById('canvas');
 		this.renderer = new ArchRenderer(this, canvas);
 		this.ui = new UI(this);
 		this.input = new InputHandler(this, this.renderer);
-		// let renderer and ui react to model events (they subscribe themselves)
-		// emit an initial rebuild so renderer and UI can sync
 		if (this.model && typeof this.model.emitChange === 'function') this.model.emitChange({ type: 'rebuild' });
 		this.renderer.startLoop(this.input.inputState, this.input.keys, this.input.mobile);
 		this.ui.updateLegendDisplay();
 	}
 
 	selectNode(id, sceneNode) {
-		// only update model selection; renderer and ui handle visuals
 		if (this.model && typeof this.model.setSelected === 'function') this.model.setSelected(id);
 	}
 
