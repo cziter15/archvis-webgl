@@ -30,10 +30,8 @@ export class UI {
 		}
 		this.wireAll();
 		this.updateMobileUI();
-		try {
-			this.setVisibility('legendEditor', false);
-			this.setVisibility('editPanel', false);
-		} catch (e) {}
+		this.setVisibility('legendEditor', false);
+		this.setVisibility('editPanel', false);
 	}
 	detectMobile() {
 		try {
@@ -220,13 +218,11 @@ export class UI {
 		let width = 24;
 		let height = 24;
 		if (anchor && typeof anchor.getBoundingClientRect === 'function') {
-			try {
-				const rect = anchor.getBoundingClientRect();
-				left = rect.left + window.scrollX;
-				top = rect.top + window.scrollY;
-				width = rect.width || width;
-				height = rect.height || height;
-			} catch (err) {}
+			const rect = anchor.getBoundingClientRect();
+			left = rect.left + (window.scrollX || 0);
+			top = rect.top + (window.scrollY || 0);
+			width = rect.width || width;
+			height = rect.height || height;
 		}
 		input.style.position = 'absolute';
 		input.style.left = left + 'px';
@@ -599,10 +595,8 @@ export class UI {
 		titleEl.textContent = titleText;
 	}
 	updateMobileUI() {
-		// dodatkowy warunek: wymagamy wąskiego viewportu, by nie pokazywać UI mobilnego
 		const narrowScreen = (typeof window !== 'undefined') ? window.innerWidth <= 900 : false;
 		const mobile = !!this.isMobile && narrowScreen;
-		// debug log removed
 		this.setVisibility('mobileControls', mobile);
 		this.setVisibility('mobileMenu', mobile);
 		this.setVisibility('leftPanel', !mobile);
@@ -611,29 +605,13 @@ export class UI {
 		this.setVisibility('mobileSaveBtn', mobile);
 		this.setVisibility('mobileLoadBtn', mobile);
 		this.setVisibility('mobileSampleBtn', mobile);
-		try {
-			const uiHidden = (typeof document !== 'undefined') ? document.body.classList.contains('hide-ui') : false;
-			this.setVisibility('uiToggle', uiHidden, {
-				useHiddenClass: false,
-				setAria: false,
-				className: 'visible'
-			});
-		} catch (e) {
-			this.setVisibility('uiToggle', false, {
-				useHiddenClass: false,
-				setAria: false,
-				className: 'visible'
+		if (!this._mobileResizeHooked && typeof window !== 'undefined') {
+			this._mobileResizeHooked = true;
+			window.addEventListener('resize', () => {
+				const prev = this.isMobile;
+				this.isMobile = this.detectMobile();
+				if (prev !== this.isMobile) this.updateMobileUI();
 			});
 		}
-		try {
-			if (!this._mobileResizeHooked && typeof window !== 'undefined') {
-				this._mobileResizeHooked = true;
-				window.addEventListener('resize', () => {
-					const prev = this.isMobile;
-					this.isMobile = this.detectMobile();
-					if (prev !== this.isMobile) this.updateMobileUI();
-				});
-			}
-		} catch (e) {}
 	}
 }

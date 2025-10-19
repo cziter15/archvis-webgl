@@ -311,9 +311,9 @@ export class InputHandler {
 			const knob = el.querySelector('.stick-knob');
 			if (!knob) return;
 			const onPointerDown = (e) => {
-				try {
-					el.setPointerCapture?.(e.pointerId);
-				} catch (err) {}
+				if (typeof el.setPointerCapture === 'function') {
+					try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore capture errors */ }
+				}
 				this.resetAutoRotate();
 				if (posKey === 'left') {
 					if (this.mobile.leftTouchId == null) this.mobile.leftTouchId = e.pointerId;
@@ -338,9 +338,9 @@ export class InputHandler {
 				updateFromEvent(e);
 			};
 			const onPointerUp = (e) => {
-				try {
-					el.releasePointerCapture?.(e.pointerId);
-				} catch (err) {}
+				if (typeof el.releasePointerCapture === 'function') {
+					try { el.releasePointerCapture(e.pointerId); } catch (err) { /* ignore release errors */ }
+				}
 				if (posKey === 'left') {
 					this.mobile.leftTouchId = null;
 					this.mobile.leftPos.x = 0;

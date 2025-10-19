@@ -222,7 +222,7 @@ input[type="range"]::-moz-range-thumb {
 .empty-edit-msg { color: #00ffff; text-align: center; padding: 20px; font-size: 12px; }
 .grabbing { cursor: grabbing !important; }
 .hide-cursor { cursor: none; }
-.body.hide-ui .ui-container { display: none !important; }
+body.hide-ui .ui-container { display: none !important; }
 .flex-row { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
 .legend-swatch { width: 28px; height: 28px; border: 1px solid #00ffff; background: #00ffff; box-sizing: border-box; cursor: pointer; }
 .legend-name { flex: 1; color: #00ffff; font-size: 12px; }
@@ -308,21 +308,6 @@ input[type="range"]::-moz-range-thumb {
 }
 .hidden-input {
 	display: none;
-}
-.ui-toggle {
-	position: absolute;
-	bottom: 24px;
-	left: 24px;
-	color: #00ffff;
-	font-size: 12px;
-	background: rgba(0, 0, 0, 0.5);
-	padding: 8px 12px;
-	border: 1px solid #00ffff;
-	pointer-events: auto;
-	display: none;
-}
-.ui-toggle.visible {
-	display: block;
 }
 .mobile-controls {
 	position: absolute;

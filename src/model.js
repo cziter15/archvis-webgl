@@ -6,7 +6,6 @@
  *
  *	https://github.com/cziter15/archvis-webgl/blob/main/LICENSE
  */
-import * as THREE from 'three';
 export class ArchModel {
 	static assignIds(node) {
 		if (!node) return;

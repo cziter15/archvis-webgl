@@ -104,13 +104,11 @@ export class ArchRenderer {
 						return;
 					}
 					if (payload.type === 'node-added' && payload.id) {
-						try {
-							const newNode = ArchModel.findById(this.app.model.root, payload.id);
-							if (newNode) {
-								this.addNodeToScene(newNode, payload.parentId);
-								return;
-							}
-						} catch (e) {}
+						const newNode = ArchModel.findById(this.app.model.root, payload.id);
+						if (newNode) {
+							this.addNodeToScene(newNode, payload.parentId);
+							return;
+						}
 						const prevIdA = this.selectedId;
 						this.buildFromArch(this.app.model, prevIdA);
 						return;
