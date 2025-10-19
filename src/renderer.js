@@ -520,15 +520,14 @@ export class ArchRenderer {
 		this.camera.updateProjectionMatrix();
 		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 		this.renderer.setSize(w, h);
-		try {
-			const rw = this.renderer.domElement.clientWidth || w;
-			const rh = this.renderer.domElement.clientHeight || h;
-			if (this._lineMaterials && this._lineMaterials.length) {
-				this._lineMaterials.forEach(mat => {
-					if (mat && mat.resolution) mat.resolution.set(rw, rh);
-				});
-			}
-		} catch (e) {
+		const rw = this.renderer?.domElement?.clientWidth || w;
+		const rh = this.renderer?.domElement?.clientHeight || h;
+		if (Array.isArray(this._lineMaterials) && this._lineMaterials.length) {
+			this._lineMaterials.forEach(mat => {
+				if (mat && mat.resolution && typeof mat.resolution.set === 'function') {
+					mat.resolution.set(rw, rh);
+				}
+			});
 		}
 	}
 	_bindResize() {
