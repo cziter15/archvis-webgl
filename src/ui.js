@@ -17,6 +17,9 @@ export class UI {
 		this.editMode = false;
 		this.eventListeners = new Map();
 
+		// central place for mobile detection - other modules should use this.app.ui.isMobile
+		this.isMobile = this.detectMobile();
+
 		// subscribe to model events when possible
 		if (this.app?.model?.onChange) {
 			this.app.model.onChange(() => {
@@ -36,6 +39,19 @@ export class UI {
 
 		// wire UI event handlers immediately; wireAll is defensive and checks for elements
 		this.wireAll();
+
+		// ensure mobile/desktop UI state is applied right away
+		this.updateMobileUI();
+	}
+
+	// small helper to detect mobile/touch-capable environments
+	detectMobile() {
+		try {
+			if (typeof window === 'undefined') return false;
+			return ('ontouchstart' in window) || (navigator && navigator.maxTouchPoints > 0) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+		} catch (e) {
+			return false;
+		}
 	}
 
 	setEditMode(active) {
@@ -602,5 +618,41 @@ export class UI {
 		if (!titleEl) return;
 		const titleText = this.app?.model?.uiInfo?.title || 'ARCHITECTURE VISUALIZATION';
 		titleEl.textContent = titleText;
+	}
+
+	// re-evaluate/refresh mobile UI elements visibility
+	updateMobileUI() {
+		const toggleById = (id, hide) => {
+			const el = document.getElementById(id);
+			if (!el) return;
+			el.classList.toggle('hidden', !!hide);
+		};
+		const setAriaHidden = (id, hidden) => {
+			const el = document.getElementById(id);
+			if (!el) return;
+			if (hidden) el.setAttribute('aria-hidden', 'true'); else el.removeAttribute('aria-hidden');
+		};
+
+		// mobile controls visible when this.isMobile
+		toggleById('mobileControls', !this.isMobile);
+		setAriaHidden('mobileControls', !this.isMobile);
+		toggleById('mobileMenu', !this.isMobile);
+		toggleById('leftPanel', this.isMobile);
+		toggleById('rightPanel', this.isMobile);
+		toggleById('title', this.isMobile);
+		const uiToggle = document.getElementById('uiToggle');
+		if (uiToggle) uiToggle.classList.toggle('visible', !this.isMobile);
+
+		// listen for window resize to re-evaluate mobile state (some environments change layout)
+		try {
+			if (!this._mobileResizeHooked && typeof window !== 'undefined') {
+				this._mobileResizeHooked = true;
+				window.addEventListener('resize', () => {
+					const prev = this.isMobile;
+					this.isMobile = this.detectMobile();
+					if (prev !== this.isMobile) this.updateMobileUI();
+				});
+			}
+		} catch (e) {}
 	}
 }

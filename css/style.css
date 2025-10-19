@@ -380,13 +380,8 @@ input[type="range"]::-moz-range-thumb {
 	justify-content: center;
 	touch-action: manipulation;
 }
-@media (min-width: 900px) {
-	.mobile-controls { display: none; }
-}
-@media (max-width: 899px) {
-	.ui-container .left-panel, .ui-container .right-panel, .title { display: none; }
-	.mobile-controls { display: block; }
-}
+/* mobile vs desktop visibility is controlled by JS (UI.updateMobileUI)
+   removed automatic media-based show/hide so `app.ui.isMobile` is the source of truth */
 @media (min-width: 900px) {
 	.button#editBtn { display: block; }
 	.edit-row { display: flex; gap: 6px; align-items: center; margin: 2px 0; }
@@ -420,6 +415,4 @@ input[type="range"]::-moz-range-thumb {
 	justify-content: center;
 	touch-action: manipulation;
 }
-@media (min-width: 900px) {
-	.mobile-menu { display: none; }
-}
+/* mobile-menu visibility is handled by JS */

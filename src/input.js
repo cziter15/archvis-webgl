@@ -65,16 +65,9 @@ export class InputHandler {
 		};
 		this.pinchStartDist = null;
 		this.lastWheelTime = 0;
-		// detect mobile / touch-capable devices and disable auto-rotate there
-		this.isMobile = false;
-		try {
-			if (typeof window !== 'undefined') {
-				this.isMobile = ('ontouchstart' in window) || (navigator && navigator.maxTouchPoints > 0);
-			}
-		} catch (e) {
-			this.isMobile = false;
-		}
-		// default autoRotate should be off on mobile
+		// use centralized mobile detection from UI when available
+		this.isMobile = !!(this.app && this.app.ui && this.app.ui.isMobile);
+		// default autoRotate should be off on mobile devices
 		if (this.isMobile) this.inputState.autoRotate = false;
 		this._init();
 	}
@@ -485,7 +478,9 @@ export class InputHandler {
 		clearTimeout(this.inputState.inactivityTimer);
 		this.inputState.inactivityTimer = setTimeout(() => {
 			// only enable auto-rotate after inactivity on non-mobile devices
-			if (!this.app.ui.editMode && !this.isMobile) this.inputState.autoRotate = true;
+			const isMobile = !!(this.app && this.app.ui && this.app.ui.isMobile);
+			const editMode = !!(this.app && this.app.ui && this.app.ui.editMode);
+			if (!editMode && !isMobile) this.inputState.autoRotate = true;
 		}, 3000);
 	}
 }
