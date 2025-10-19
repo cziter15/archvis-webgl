@@ -101,9 +101,10 @@ export class InputHandler {
 		}
 		if (key === 'u') {
 			document.body.classList.toggle('hide-ui');
-			const uiToggle = document.getElementById('uiToggle');
-			if (uiToggle) {
-				uiToggle.classList.toggle('visible');
+			// reflect new UI state via centralized helper on UI
+			const visible = !document.body.classList.contains('hide-ui');
+			if (this.app && this.app.ui && typeof this.app.ui._setVisibility === 'function') {
+				this.app.ui._setVisibility('uiToggle', visible, { useHiddenClass: false, setAria: false, className: 'visible' });
 			}
 		}
 	}

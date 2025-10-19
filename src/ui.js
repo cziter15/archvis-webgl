@@ -65,23 +65,17 @@ export class UI {
 		const legendEditor = document.getElementById('legendEditor');
 		const smooth = document.querySelector('.smoothness-control');
 		if (active) {
-			if (editPanel) {
-				editPanel.classList.remove('hidden');
-				editPanel.setAttribute('aria-hidden', 'false');
-			}
-			if (legendEditor) legendEditor.classList.remove('hidden');
-			if (smooth) smooth.classList.add('hidden');
+			this._setVisibility(editPanel || 'editPanel', true);
+			this._setVisibility(legendEditor || 'legendEditor', true);
+			this._setVisibility(smooth, false);
 			this.addMessage('Edit mode: use arrows to move nodes');
 			this.app.deselectNode();
 			this.renderLegendEditor();
 			this.renderEmptyEditPanel();
 		} else {
-			if (editPanel) {
-				editPanel.classList.add('hidden');
-				editPanel.setAttribute('aria-hidden', 'true');
-			}
-			if (legendEditor) legendEditor.classList.add('hidden');
-			if (smooth) smooth.classList.remove('hidden');
+			this._setVisibility(editPanel || 'editPanel', false);
+			this._setVisibility(legendEditor || 'legendEditor', false);
+			this._setVisibility(smooth, true);
 			this._setButtonsVisibility(['saveBtn', 'loadBtn', 'sampleBtn'], true);
 			this.addMessage('Edit mode disabled');
 			const selId = this.app?.model?.getSelected ? this.app.model.getSelected() : null;
@@ -93,11 +87,7 @@ export class UI {
 	}
 
 	_setButtonsVisibility(ids, show) {
-		ids.forEach(id => {
-			const el = document.getElementById(id);
-			if (!el) return;
-			el.classList.toggle('hidden', !show);
-		});
+		ids.forEach(id => this._setVisibility(id, !!show));
 	}
 
 	addMessage(text) {
@@ -117,10 +107,7 @@ export class UI {
 		if (!this.app.model.legend) {
 			this.app.model.legend = [];
 		}
-		const legendContainer = document.getElementById('legendContainer');
-		if (legendContainer) {
-			legendContainer.classList.toggle('hidden', !(this.app.model.legend.length > 0));
-		}
+		this._setVisibility('legendContainer', (this.app.model.legend || []).length > 0);
 		(this.app.model.legend || []).forEach(entry => {
 			const row = document.createElement('div');
 			row.className = 'legend-entry';
@@ -161,11 +148,7 @@ export class UI {
 			}
 			list.appendChild(row);
 		});
-		const legendEditor = document.getElementById('legendEditor');
-		if (legendEditor) {
-			const hasLegend = (this.app.model.legend || []).length > 0;
-			legendEditor.classList.toggle('hidden', !this.editMode && !hasLegend);
-		}
+		this._setVisibility('legendEditor', this.editMode || ((this.app.model.legend || []).length > 0));
 		if (this.editMode) {
 			this._setupLegendEventListeners(list);
 		}
@@ -294,10 +277,10 @@ export class UI {
 		const selId = this.app?.model?.getSelected ? this.app.model.getSelected() : null;
 		const sceneNode = selId ? this.app.renderer.getNodeById(selId) : null;
 		if (!this.editMode || !sceneNode) {
-			panel.classList.add('hidden');
+			this._setVisibility(panel || 'editPanel', false);
 			return;
 		}
-		panel.classList.remove('hidden');
+		this._setVisibility(panel || 'editPanel', true);
 		const archNode = ArchModel.findById(this.app.model.root, sceneNode.userData.id);
 		content.innerHTML = `
 	  <div class="edit-row"><label>Name</label><input type="text" id="editName" value="${archNode?.name || ''}"></div>
@@ -320,8 +303,7 @@ export class UI {
 		const panel = document.getElementById('editPanel');
 		const content = document.getElementById('editContent');
 		if (!panel || !content) return;
-		panel.classList.remove('hidden');
-		panel.setAttribute('aria-hidden', 'false');
+		this._setVisibility(panel || 'editPanel', true);
 		content.innerHTML = '<div class="empty-edit-msg">Select a node to edit it</div>';
 	}
 
@@ -430,6 +412,30 @@ export class UI {
 			});
 		});
 		this.eventListeners.delete(element);
+	}
+
+	// universal visibility helper
+	// elOrId: Element or string id
+	// visible: boolean
+	// opts: {useHiddenClass: true|false, setAria: true|false}
+	_setVisibility(elOrId, visible, opts = { useHiddenClass: true, setAria: true }) {
+		let el = null;
+		if (!elOrId) return;
+		if (typeof elOrId === 'string') el = document.getElementById(elOrId);
+		else el = elOrId;
+		if (!el) return;
+		// support toggling a custom class (e.g. 'visible') instead of the 'hidden' class
+		if (opts.className) {
+			el.classList.toggle(opts.className, !!visible);
+		} else if (opts.useHiddenClass) {
+			el.classList.toggle('hidden', !visible);
+		} else {
+			// use inline display style when requested
+			if (!visible) el.style.display = 'none'; else el.style.display = (opts.display || 'block');
+		}
+		if (opts.setAria) {
+			if (!visible) el.setAttribute('aria-hidden', 'true'); else el.removeAttribute('aria-hidden');
+		}
 	}
 
 	wireAll() {
@@ -622,26 +628,14 @@ export class UI {
 
 	// re-evaluate/refresh mobile UI elements visibility
 	updateMobileUI() {
-		const toggleById = (id, hide) => {
-			const el = document.getElementById(id);
-			if (!el) return;
-			el.classList.toggle('hidden', !!hide);
-		};
-		const setAriaHidden = (id, hidden) => {
-			const el = document.getElementById(id);
-			if (!el) return;
-			if (hidden) el.setAttribute('aria-hidden', 'true'); else el.removeAttribute('aria-hidden');
-		};
-
-		// mobile controls visible when this.isMobile
-		toggleById('mobileControls', !this.isMobile);
-		setAriaHidden('mobileControls', !this.isMobile);
-		toggleById('mobileMenu', !this.isMobile);
-		toggleById('leftPanel', this.isMobile);
-		toggleById('rightPanel', this.isMobile);
-		toggleById('title', this.isMobile);
-		const uiToggle = document.getElementById('uiToggle');
-		if (uiToggle) uiToggle.classList.toggle('visible', !this.isMobile);
+		// mobile controls visible when this.isMobile (use helper everywhere)
+		this._setVisibility('mobileControls', this.isMobile);
+		this._setVisibility('mobileMenu', this.isMobile);
+		this._setVisibility('leftPanel', !this.isMobile);
+		this._setVisibility('rightPanel', !this.isMobile);
+		this._setVisibility('title', !this.isMobile);
+		// uiToggle uses 'visible' class when desktop
+		this._setVisibility('uiToggle', !this.isMobile, { useHiddenClass: false, setAria: false, className: 'visible' });
 
 		// listen for window resize to re-evaluate mobile state (some environments change layout)
 		try {
