@@ -6,6 +6,7 @@
  *
  *	https://github.com/cziter15/archvis-webgl/blob/main/LICENSE
  */
+import { threshold } from 'three/src/nodes/TSL.js';
 import { ArchModel } from './model.js';
 
 export class UI {
@@ -320,6 +321,9 @@ export class UI {
     this.setVisibility('leftPanel', !this.isMobile);
     this.setVisibility('rightPanel', !this.isMobile);
     this.setVisibility('title', !this.isMobile);
+    this.setVisibility('mobileSaveBtn', this.isMobile);
+    this.setVisibility('mobileLoadBtn', this.isMobile);
+    this.setVisibility('mobileSampleBtn', this.isMobile);
     try {
       const uiHidden = (typeof document !== 'undefined') ? document.body.classList.contains('hide-ui') : false;
       this.setVisibility('uiToggle', uiHidden, { useHiddenClass: false, setAria: false, className: 'visible' });
