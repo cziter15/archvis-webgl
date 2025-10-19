@@ -29,13 +29,4 @@ export class App {
     this.renderer.startLoop(this.input.inputState, this.input.keys, this.input.mobile);
     this.ui.updateLegendDisplay();
   }
-
-  selectNode(id, sceneNode) {
-    if (this.model && typeof this.model.setSelected === 'function') this.model.setSelected(id);
-  }
-
-  deselectNode() {
-    if (this.model && typeof this.model.setSelected === 'function') this.model.setSelected(null);
-  }
-
 }

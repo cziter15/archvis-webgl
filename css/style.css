@@ -81,11 +81,9 @@ body {
 }
 .right-panel .panel-box {
 	overflow-x: hidden;
-}
-.right-panel .panel-box {
-    max-height: calc(100vh - 80px);
-    overflow-y: auto;
-    padding-right: 8px;
+	max-height: calc(100vh - 80px);
+	overflow-y: auto;
+	padding-right: 8px;
 }
 .legend {
 	margin-bottom: 12px;
@@ -211,22 +209,20 @@ input[type="range"]::-moz-range-thumb {
 	text-decoration: none;
 }
 .legend-editor {
-	margin-top: 12px;
-	border-top: 1px dashed #00ffff;
-	padding-top: 8px;
+    margin-top: 12px;
+    border-top: 1px dashed #00ffff;
+    padding-top: 8px;
+    max-height: 40vh;
+    overflow-y: auto;
 }
-.legend-editor {
-	max-height: 40vh;
-	overflow-y: auto;
-}
-.hidden { display: none; }
+.hidden { display: none !important; }
 .controls-divider { margin-top: 8px; padding-top: 8px; border-top: 1px solid #00ffff; }
 .hotkey { color: #ffff00; }
 .assign-legend-select { flex: 1; padding: 6px; background: rgba(0,0,0,0.6); border: 1px solid #00ffff; color: #00ffff; }
 .empty-edit-msg { color: #00ffff; text-align: center; padding: 20px; font-size: 12px; }
 .grabbing { cursor: grabbing !important; }
 .hide-cursor { cursor: none; }
-.hide-ui .ui-container { display: none !important; }
+.body.hide-ui .ui-container { display: none !important; }
 .flex-row { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
 .legend-swatch { width: 28px; height: 28px; border: 1px solid #00ffff; background: #00ffff; box-sizing: border-box; cursor: pointer; }
 .legend-name { flex: 1; color: #00ffff; font-size: 12px; }
@@ -380,17 +376,14 @@ input[type="range"]::-moz-range-thumb {
 	justify-content: center;
 	touch-action: manipulation;
 }
-/* mobile vs desktop visibility is controlled by JS (UI.updateMobileUI)
-   removed automatic media-based show/hide so `app.ui.isMobile` is the source of truth */
-@media (min-width: 900px) {
-	.button#editBtn { display: block; }
-	.edit-row { display: flex; gap: 6px; align-items: center; margin: 2px 0; }
-	.edit-row label { width: 48px; color: #00ffff; font-size: 11px; }
-	.edit-row input[type="text"], .edit-row input[type="number"], .edit-row input[type="color"] { flex: 1; padding: 4px; background: rgba(0,0,0,0.6); border: 1px solid #00ffff; color: #00ffff; font-size: 12px; }
-	.edit-actions { display:flex; gap:6px; margin-top:8px; margin-bottom:0; }
-	.button.small { padding: 4px 6px; font-size: 11px; }
-	.button.danger { border-color: #ff5555; color: #ff8888; }
-}
+
+.button#editBtn { display: block; }
+.edit-row { display: flex; gap: 6px; align-items: center; margin: 2px 0; }
+.edit-row label { width: 48px; color: #00ffff; font-size: 11px; }
+.edit-row input[type="text"], .edit-row input[type="number"], .edit-row input[type="color"] { flex: 1; padding: 4px; background: rgba(0,0,0,0.6); border: 1px solid #00ffff; color: #00ffff; font-size: 12px; }
+.edit-actions { display:flex; gap:6px; margin-top:8px; margin-bottom:0; }
+.button.small { padding: 4px 6px; font-size: 11px; }
+.button.danger { border-color: #ff5555; color: #ff8888; }
 .mobile-menu {
 	position: absolute;
 	left: 50%;
@@ -401,8 +394,8 @@ input[type="range"]::-moz-range-thumb {
 	pointer-events: auto;
 	z-index: 120; /* above other UI */
 }
-.mobile-action { z-index: 70; }
 .mobile-action {
+	z-index: 70;
 	width: 48px;
 	height: 48px;
 	border-radius: 10px;
@@ -415,7 +408,3 @@ input[type="range"]::-moz-range-thumb {
 	justify-content: center;
 	touch-action: manipulation;
 }
-/* mobile-menu visibility is handled by JS */
-
-/* When UI is hidden, show the small toggle control */
-body.hide-ui .ui-toggle { display: block; }

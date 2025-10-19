@@ -6,7 +6,6 @@
  *
  *	https://github.com/cziter15/archvis-webgl/blob/main/LICENSE
  */
-import { threshold } from 'three/src/nodes/TSL.js';
 import { ArchModel } from './model.js';
 
 export class UI {
@@ -28,12 +27,20 @@ export class UI {
     }
     this.wireAll();
     this.updateMobileUI();
+    try {
+      this.setVisibility('legendEditor', false);
+      this.setVisibility('editPanel', false);
+    } catch (e) { }
   }
 
   detectMobile() {
     try {
       if (typeof window === 'undefined') return false;
-      return ('ontouchstart' in window) || (navigator && navigator.maxTouchPoints > 0) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+      const ua = (navigator.userAgent || navigator.vendor || window.opera || '').toLowerCase();
+      const isMobileUA = /android|iphone|ipad|ipod|opera mini|iemobile|mobile/.test(ua);
+      const hasTouch = !!(navigator && navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+      const narrowScreen = (typeof window !== 'undefined') ? window.innerWidth <= 900 : false;
+      return isMobileUA || (hasTouch && narrowScreen);
     } catch (e) { return false; }
   }
 
@@ -49,7 +56,7 @@ export class UI {
       this.setVisibility(legendEditor || 'legendEditor', true);
       this.setVisibility(smooth, false);
       this.addMessage('Edit mode: use arrows to move nodes');
-      this.app.deselectNode();
+      if (this.app?.model && typeof this.app.model.setSelected === 'function') this.app.model.setSelected(null);
       this.renderLegendEditor();
       this.renderEmptyEditPanel();
     } else {
@@ -60,7 +67,7 @@ export class UI {
       this.addMessage('Edit mode disabled');
       const selId = this.app?.model?.getSelected ? this.app.model.getSelected() : null;
       const selNode = selId ? this.app.renderer.getNodeById(selId) : null;
-      if (selNode) this.app.deselectNode();
+  if (selNode && this.app?.model && typeof this.app.model.setSelected === 'function') this.app.model.setSelected(null);
     }
   }
 
@@ -120,7 +127,8 @@ export class UI {
       }
       list.appendChild(row);
     });
-    this.setVisibility('legendEditor', this.editMode || ((this.app.model.legend || []).length > 0));
+
+  this.setVisibility('legendEditor', !!this.editMode);
     if (this.editMode) this._setupLegendEventListeners(list);
   }
 
@@ -316,14 +324,18 @@ export class UI {
   _updateTitleFromModel() { const titleEl = document.getElementById('title'); if (!titleEl) return; const titleText = this.app?.model?.uiInfo?.title || 'ARCHITECTURE VISUALIZATION'; titleEl.textContent = titleText; }
 
   updateMobileUI() {
-    this.setVisibility('mobileControls', this.isMobile);
-    this.setVisibility('mobileMenu', this.isMobile);
-    this.setVisibility('leftPanel', !this.isMobile);
-    this.setVisibility('rightPanel', !this.isMobile);
-    this.setVisibility('title', !this.isMobile);
-    this.setVisibility('mobileSaveBtn', this.isMobile);
-    this.setVisibility('mobileLoadBtn', this.isMobile);
-    this.setVisibility('mobileSampleBtn', this.isMobile);
+    // dodatkowy warunek: wymagamy wąskiego viewportu, by nie pokazywać UI mobilnego
+    const narrowScreen = (typeof window !== 'undefined') ? window.innerWidth <= 900 : false;
+    const mobile = !!this.isMobile && narrowScreen;
+      // debug log removed
+    this.setVisibility('mobileControls', mobile);
+    this.setVisibility('mobileMenu', mobile);
+    this.setVisibility('leftPanel', !mobile);
+    this.setVisibility('rightPanel', !mobile);
+    this.setVisibility('title', !mobile);
+    this.setVisibility('mobileSaveBtn', mobile);
+    this.setVisibility('mobileLoadBtn', mobile);
+    this.setVisibility('mobileSampleBtn', mobile);
     try {
       const uiHidden = (typeof document !== 'undefined') ? document.body.classList.contains('hide-ui') : false;
       this.setVisibility('uiToggle', uiHidden, { useHiddenClass: false, setAria: false, className: 'visible' });

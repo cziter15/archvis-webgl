@@ -178,11 +178,11 @@ export class InputHandler {
       while (obj && !this.renderer.nodes.includes(obj)) obj = obj.parent;
       if (obj) {
         const id = obj.userData?.id;
-        this.app.selectNode(id, obj);
+        if (this.app?.model && typeof this.app.model.setSelected === 'function') this.app.model.setSelected(id);
         return;
       }
     }
-    this.app.deselectNode();
+  if (this.app?.model && typeof this.app.model.setSelected === 'function') this.app.model.setSelected(null);
   }
 
   _setupTouchControls() {
