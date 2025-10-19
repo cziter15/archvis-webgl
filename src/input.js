@@ -71,10 +71,7 @@ export class InputHandler {
     }
     if (key === 'u') {
       document.body.classList.toggle('hide-ui');
-      const visible = !document.body.classList.contains('hide-ui');
-      if (this.app && this.app.ui && typeof this.app.ui.setVisibility === 'function') {
-        this.app.ui.setVisibility('uiToggle', visible, { useHiddenClass: false, setAria: false, className: 'visible' });
-      }
+      if (this.app && this.app.ui && typeof this.app.ui.updateMobileUI === 'function') this.app.ui.updateMobileUI();
     }
   }
 

@@ -320,7 +320,10 @@ export class UI {
     this.setVisibility('leftPanel', !this.isMobile);
     this.setVisibility('rightPanel', !this.isMobile);
     this.setVisibility('title', !this.isMobile);
-    this.setVisibility('uiToggle', !this.isMobile, { useHiddenClass: false, setAria: false, className: 'visible' });
+    try {
+      const uiHidden = (typeof document !== 'undefined') ? document.body.classList.contains('hide-ui') : false;
+      this.setVisibility('uiToggle', uiHidden, { useHiddenClass: false, setAria: false, className: 'visible' });
+    } catch (e) { this.setVisibility('uiToggle', false, { useHiddenClass: false, setAria: false, className: 'visible' }); }
     try {
       if (!this._mobileResizeHooked && typeof window !== 'undefined') {
         this._mobileResizeHooked = true;

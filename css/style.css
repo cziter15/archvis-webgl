@@ -416,3 +416,6 @@ input[type="range"]::-moz-range-thumb {
 	touch-action: manipulation;
 }
 /* mobile-menu visibility is handled by JS */
+
+/* When UI is hidden, show the small toggle control */
+body.hide-ui .ui-toggle { display: block; }
