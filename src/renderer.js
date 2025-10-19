@@ -10,6 +10,10 @@ import * as THREE from 'three';
 import {
 	ArchModel
 } from './model.js';
+
+import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js';
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
+import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 export class ArchRenderer {
 	constructor(app, canvas) {
 		this.app = app;
@@ -34,10 +38,11 @@ export class ArchRenderer {
 		this._shared = {
 			nodeBoxGeo: new THREE.BoxGeometry(0.6, 0.6, 0.6),
 			nodeInnerGeo: new THREE.BoxGeometry(0.4, 0.4, 0.4),
-			shaftGeo: new THREE.CylinderGeometry(0.06, 0.06, 1, 8),
-			coneGeo: new THREE.ConeGeometry(0.12, 0.2, 8),
-			planeGeo: new THREE.PlaneGeometry(4.6, 0.66)
+			shaftGeo: new THREE.CylinderGeometry(0.12, 0.12, 1, 12),
+			coneGeo: new THREE.ConeGeometry(0.18, 0.3, 12),
+			planeGeo: new THREE.PlaneGeometry(5.2, 0.9)
 		};
+		this._lineMaterials = [];
 		this._setupLighting();
 		this._setupParticles();
 		this._setupGizmo();
@@ -76,18 +81,7 @@ export class ArchRenderer {
 									if (startId === payload.id || endId === payload.id) {
 										const startNode = startId ? this.getNodeById(startId) : null;
 										const endNode = endId ? this.getNodeById(endId) : null;
-										const arr = line.geometry.attributes.position.array;
-										if (startNode) {
-											arr[0] = startNode.position.x;
-											arr[1] = startNode.position.y;
-											arr[2] = startNode.position.z;
-										}
-										if (endNode) {
-											arr[3] = endNode.position.x;
-											arr[4] = endNode.position.y;
-											arr[5] = endNode.position.z;
-										}
-										line.geometry.attributes.position.needsUpdate = true;
+										this._updateLineMesh(line, startNode, endNode);
 									}
 								});
 							}
@@ -251,10 +245,23 @@ export class ArchRenderer {
 			side: THREE.DoubleSide
 		}));
 		back.position.z = -0.05;
-		const frame = new THREE.LineSegments(new THREE.EdgesGeometry(this._shared.planeGeo), new THREE.LineBasicMaterial({
-			color,
-			linewidth: 2
-		}));
+		const edgesGeo = new THREE.EdgesGeometry(this._shared.planeGeo);
+		const posAttr = edgesGeo.attributes.position;
+		const positions = [];
+		for (let i = 0; i < posAttr.count; i++) {
+			positions.push(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+		}
+		const lineGeometry = new LineSegmentsGeometry();
+		lineGeometry.setPositions(positions);
+		const lineMaterial = new LineMaterial({
+			color: color,
+			linewidth: 2,
+			transparent: true,
+			opacity: 1.0
+		});
+		this._lineMaterials.push(lineMaterial);
+		if (this.renderer && this.renderer.domElement) lineMaterial.resolution.set(this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight);
+		const frame = new LineSegments2(lineGeometry, lineMaterial);
 		const group = new THREE.Group();
 		group.add(back, text3d, frame);
 		this.textCache.set(cacheKey, group);
@@ -364,23 +371,40 @@ export class ArchRenderer {
 		return null;
 	}
 	createLine(startPos, endPos, startId, endId, color) {
-		const geo = new THREE.BufferGeometry();
 		const p1 = new THREE.Vector3(startPos[0], startPos[1], startPos[2]);
 		const p2 = new THREE.Vector3(endPos[0], endPos[1], endPos[2]);
-		geo.setFromPoints([p1, p2]);
-		const mat = new THREE.LineBasicMaterial({
-			color,
-			transparent: true,
-			opacity: 0.5
-		});
-		const line = new THREE.Line(geo, mat);
-		line.userData = {
-			startId,
-			endId
-		};
-		this.scene.add(line);
-		this.lines.push(line);
-		return line;
+		const dir = new THREE.Vector3().subVectors(p2, p1);
+		const length = Math.max(dir.length(), 1e-6);
+		const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+		const radius = 0.08;
+		const cylGeo = new THREE.CylinderGeometry(radius, radius, 1, 8, 1, true);
+		const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+		const mesh = new THREE.Mesh(cylGeo, mat);
+		mesh.position.copy(mid);
+		mesh.userData = { startId, endId, meshType: 'cylinder', baseRadius: radius };
+		const up = new THREE.Vector3(0, 1, 0);
+		const q = new THREE.Quaternion().setFromUnitVectors(up, dir.clone().normalize());
+		mesh.quaternion.copy(q);
+		mesh.scale.set(1, length, 1);
+		this.scene.add(mesh);
+		this.lines.push(mesh);
+		return mesh;
+	}
+
+	_updateLineMesh(line, startNode, endNode) {
+		if (!startNode && !endNode) return;
+		if (line.userData?.meshType !== 'cylinder') return;
+		const p1 = startNode ? startNode.position.clone() : new THREE.Vector3(...(this.app.model.root?.pos || [0,0,0]));
+		const p2 = endNode ? endNode.position.clone() : new THREE.Vector3(...(this.app.model.root?.pos || [0,0,0]));
+		const dir = new THREE.Vector3().subVectors(p2, p1);
+		const length = Math.max(dir.length(), 1e-6);
+		const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+		line.position.copy(mid);
+		const up = new THREE.Vector3(0, 1, 0);
+		const q = new THREE.Quaternion().setFromUnitVectors(up, dir.clone().normalize());
+		line.quaternion.copy(q);
+		line.scale.set(1, length, 1);
+		if (line.material) line.material.opacity = line.material.opacity; 
 	}
 	getNodeById(id) {
 		return this.nodes.find(n => n.userData?.id === id) || null;
@@ -466,22 +490,11 @@ export class ArchRenderer {
 		}
 		for (let i = 0; i < this.lines.length; i++) {
 			const line = this.lines[i];
-			line.material.opacity = 0.3 + Math.sin(frame * 0.05 + i) * 0.2;
+			if (line.material) line.material.opacity = 0.3 + Math.sin(frame * 0.05 + i) * 0.2;
 			const startNode = line.userData.startId ? this.getNodeById(line.userData.startId) : null;
 			const endNode = line.userData.endId ? this.getNodeById(line.userData.endId) : null;
 			if (startNode || endNode) {
-				const arr = line.geometry.attributes.position.array;
-				if (startNode) {
-					arr[0] = startNode.position.x;
-					arr[1] = startNode.position.y;
-					arr[2] = startNode.position.z;
-				}
-				if (endNode) {
-					arr[3] = endNode.position.x;
-					arr[4] = endNode.position.y;
-					arr[5] = endNode.position.z;
-				}
-				line.geometry.attributes.position.needsUpdate = true;
+				this._updateLineMesh(line, startNode, endNode);
 			}
 		}
 		if (this.particles) {
@@ -507,6 +520,16 @@ export class ArchRenderer {
 		this.camera.updateProjectionMatrix();
 		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 		this.renderer.setSize(w, h);
+		try {
+			const rw = this.renderer.domElement.clientWidth || w;
+			const rh = this.renderer.domElement.clientHeight || h;
+			if (this._lineMaterials && this._lineMaterials.length) {
+				this._lineMaterials.forEach(mat => {
+					if (mat && mat.resolution) mat.resolution.set(rw, rh);
+				});
+			}
+		} catch (e) {
+		}
 	}
 	_bindResize() {
 		const onResize = () => this.resize();
