@@ -29,6 +29,14 @@ export class ArchRenderer {
 		this.renderer.setClearColor(0x000510);
 		if (canvas) canvas.appendChild(this.renderer.domElement);
 		this.resize();
+		// shared geometries/materials to avoid repeated allocations
+		this._shared = {
+			nodeBoxGeo: new THREE.BoxGeometry(0.6, 0.6, 0.6),
+			nodeInnerGeo: new THREE.BoxGeometry(0.4, 0.4, 0.4),
+			shaftGeo: new THREE.CylinderGeometry(0.06, 0.06, 1, 8),
+			coneGeo: new THREE.ConeGeometry(0.12, 0.2, 8),
+			planeGeo: new THREE.PlaneGeometry(4.6, 0.66)
+		};
 		this._setupLighting();
 		this._setupParticles();
 		this._setupGizmo();
@@ -102,22 +110,89 @@ export class ArchRenderer {
 		const grid = new THREE.GridHelper(100, 100, 0x00ffff, 0x0a0a2e); grid.position.y = -18; this.scene.add(grid);
 	}
 
-	_setupParticles() { const geo = new THREE.BufferGeometry(); const positions = new Float32Array(4500); for (let i = 0; i < 4500; i++) positions[i] = (Math.random() - 0.5) * 100; geo.setAttribute('position', new THREE.BufferAttribute(positions, 3)); const mat = new THREE.PointsMaterial({ size: 0.05, color: 0x00ffff, transparent: true, opacity: 0.6 }); this.particles = new THREE.Points(geo, mat); this.scene.add(this.particles); }
+	_setupParticles() {
+		const geo = new THREE.BufferGeometry();
+		const positions = new Float32Array(4500);
+		for (let i = 0; i < 4500; i++) positions[i] = (Math.random() - 0.5) * 100;
+		geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+		const mat = new THREE.PointsMaterial({ size: 0.05, color: 0x00ffff, transparent: true, opacity: 0.6 });
+		this.particles = new THREE.Points(geo, mat);
+		this.scene.add(this.particles);
+	}
 
 	_setupGizmo() {
-		this.gizmoGroup = new THREE.Group(); this.gizmoGroup.visible = false;
-		const shaftGeo = new THREE.CylinderGeometry(0.06, 0.06, 1, 8); const coneGeo = new THREE.ConeGeometry(0.12, 0.2, 8);
-		const axes = [{ axis: 'x', color: 0xff0000, rot: [0, 0, -Math.PI / 2] }, { axis: 'y', color: 0x00ff00, rot: [0, 0, 0] }, { axis: 'z', color: 0x0000ff, rot: [Math.PI / 2, 0, 0] }];
-		axes.forEach(({ axis, color, rot }) => { const mat = new THREE.MeshBasicMaterial({ color }); const shaft = new THREE.Mesh(shaftGeo, mat); shaft.rotation.set(...rot); shaft.position[axis] = 0.5; const cone = new THREE.Mesh(coneGeo, mat); cone.rotation.set(...rot); cone.position[axis] = 1.05; const group = new THREE.Group(); group.add(shaft, cone); group.userData = { axis }; this.gizmoGroup.add(group); });
+		this.gizmoGroup = new THREE.Group();
+		this.gizmoGroup.visible = false;
+		const axes = [
+			{ axis: 'x', color: 0xff0000, rot: [0, 0, -Math.PI / 2] },
+			{ axis: 'y', color: 0x00ff00, rot: [0, 0, 0] },
+			{ axis: 'z', color: 0x0000ff, rot: [Math.PI / 2, 0, 0] }
+		];
+		axes.forEach(({ axis, color, rot }) => {
+			const mat = new THREE.MeshBasicMaterial({ color });
+			const shaft = new THREE.Mesh(this._shared.shaftGeo, mat);
+			shaft.rotation.set(...rot);
+			shaft.position[axis] = 0.5;
+			const cone = new THREE.Mesh(this._shared.coneGeo, mat);
+			cone.rotation.set(...rot);
+			cone.position[axis] = 1.05;
+			const group = new THREE.Group();
+			group.add(shaft, cone);
+			group.userData = { axis };
+			this.gizmoGroup.add(group);
+		});
 		this.scene.add(this.gizmoGroup);
 	}
 
 	_createTextMesh(text, color) {
-		const cacheKey = `${text}_${color}`; if (this.textCache.has(cacheKey)) return this.textCache.get(cacheKey).clone(); const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); canvas.width = 1024; canvas.height = 128; ctx.font = '54px Orbitron, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.shadowColor = color; ctx.shadowBlur = 15; ctx.fillStyle = color; ctx.fillText(text.toUpperCase(), 512, 64); const texture = new THREE.CanvasTexture(canvas); const geo = new THREE.PlaneGeometry(4.5, 0.56); const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide }); const text3d = new THREE.Mesh(geo, mat); const backGeo = new THREE.PlaneGeometry(4.6, 0.66); const backMat = new THREE.MeshBasicMaterial({ color: 0x000510, transparent: true, opacity: 0.8, side: THREE.DoubleSide }); const back = new THREE.Mesh(backGeo, backMat); back.position.z = -0.05; const frame = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(4.6, 0.66)), new THREE.LineBasicMaterial({ color, linewidth: 2 })); const group = new THREE.Group(); group.add(back, text3d, frame); this.textCache.set(cacheKey, group); return group.clone();
+		const cacheKey = `${text}_${color}`;
+		if (this.textCache.has(cacheKey)) return this.textCache.get(cacheKey).clone();
+		const canvas = document.createElement('canvas');
+		const ctx = canvas.getContext('2d');
+		canvas.width = 1024;
+		canvas.height = 128;
+		ctx.font = '54px Orbitron, sans-serif';
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'middle';
+		ctx.shadowColor = color;
+		ctx.shadowBlur = 15;
+		ctx.fillStyle = color;
+		ctx.fillText(text.toUpperCase(), 512, 64);
+		const texture = new THREE.CanvasTexture(canvas);
+		const geo = new THREE.PlaneGeometry(4.5, 0.56);
+		const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+		const text3d = new THREE.Mesh(geo, mat);
+		const back = new THREE.Mesh(this._shared.planeGeo, new THREE.MeshBasicMaterial({ color: 0x000510, transparent: true, opacity: 0.8, side: THREE.DoubleSide }));
+		back.position.z = -0.05;
+		const frame = new THREE.LineSegments(new THREE.EdgesGeometry(this._shared.planeGeo), new THREE.LineBasicMaterial({ color, linewidth: 2 }));
+		const group = new THREE.Group();
+		group.add(back, text3d, frame);
+		this.textCache.set(cacheKey, group);
+		return group.clone();
 	}
 
 	createNode(node) {
-		const group = new THREE.Group(); const rotatingGroup = new THREE.Group(); const color = ArchModel.getColor(node, this.app.model.legend); const scale = node.scale || 1; const geo = new THREE.BoxGeometry(0.6 * scale, 0.6 * scale, 0.6 * scale); const edges = new THREE.EdgesGeometry(geo); const lineMat = new THREE.LineBasicMaterial({ color, linewidth: 2 }); rotatingGroup.add(new THREE.LineSegments(edges, lineMat)); const glowGeo = new THREE.BoxGeometry(0.4 * scale, 0.4 * scale, 0.4 * scale); const glowMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.3, wireframe: true }); rotatingGroup.add(new THREE.Mesh(glowGeo, glowMat)); const light = new THREE.PointLight(color, 0.5, 5); rotatingGroup.add(light); group.add(rotatingGroup); const text = this._createTextMesh(node.name, color); text.position.y = 1.5 * scale; group.add(text); group.position.set(...node.pos); group.userData = { id: node.id, name: node.name, rotationSpeed: Math.random() * 0.01 + 0.005, rotatingGroup }; this.scene.add(group); this.nodes.push(group); return group;
+		const group = new THREE.Group();
+		const rotatingGroup = new THREE.Group();
+		const color = ArchModel.getColor(node, this.app.model.legend);
+		const scale = node.scale || 1;
+		// edges need scaled geometry
+		const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(0.6 * scale, 0.6 * scale, 0.6 * scale));
+		const lineMat = new THREE.LineBasicMaterial({ color, linewidth: 2 });
+		rotatingGroup.add(new THREE.LineSegments(edges, lineMat));
+		const glowMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.3, wireframe: true });
+		rotatingGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.4 * scale, 0.4 * scale, 0.4 * scale), glowMat));
+		const light = new THREE.PointLight(color, 0.5, 5);
+		rotatingGroup.add(light);
+		group.add(rotatingGroup);
+		const text = this._createTextMesh(node.name, color);
+		text.position.y = 1.5 * scale;
+		group.add(text);
+		group.position.set(...node.pos);
+		group.userData = { id: node.id, name: node.name, rotationSpeed: Math.random() * 0.01 + 0.005, rotatingGroup };
+		this.scene.add(group);
+		this.nodes.push(group);
+		return group;
 	}
 
 	addNodeToScene(node, parentId) {
@@ -146,7 +221,19 @@ export class ArchRenderer {
 
 	_findParentModel(root, childId) { if (!root) return null; if ((root.children || []).some(c => c.id === childId)) return root; for (const c of (root.children || [])) { const found = this._findParentModel(c, childId); if (found) return found; } return null; }
 
-	createLine(startPos, endPos, startId, endId, color) { const geo = new THREE.BufferGeometry(); geo.setFromPoints([new THREE.Vector3(...startPos), new THREE.Vector3(...endPos)]); const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.5 }); const line = new THREE.Line(geo, mat); line.userData = { startId, endId }; this.scene.add(line); this.lines.push(line); return line; }
+		createLine(startPos, endPos, startId, endId, color) {
+			const geo = new THREE.BufferGeometry();
+			// avoid creating temporary Vector3s in array literal
+			const p1 = new THREE.Vector3(startPos[0], startPos[1], startPos[2]);
+			const p2 = new THREE.Vector3(endPos[0], endPos[1], endPos[2]);
+			geo.setFromPoints([p1, p2]);
+			const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.5 });
+			const line = new THREE.Line(geo, mat);
+			line.userData = { startId, endId };
+			this.scene.add(line);
+			this.lines.push(line);
+			return line;
+		}
 
 	getNodeById(id) { return this.nodes.find(n => n.userData?.id === id) || null; }
 
@@ -171,9 +258,39 @@ export class ArchRenderer {
 	gizmoPointerUp() { this.axisDragging = null; }
 
 	update(frame) {
-		this.nodes.forEach(n => { if (n.userData?.rotatingGroup) { n.userData.rotatingGroup.rotation.y += n.userData.rotationSpeed; n.userData.rotatingGroup.rotation.x += n.userData.rotationSpeed * 0.5; } });
-		this.lines.forEach((line, i) => { line.material.opacity = 0.3 + Math.sin(frame * 0.05 + i) * 0.2; const startNode = line.userData.startId ? this.getNodeById(line.userData.startId) : null; const endNode = line.userData.endId ? this.getNodeById(line.userData.endId) : null; if (startNode || endNode) { const arr = line.geometry.attributes.position.array; if (startNode) { arr[0] = startNode.position.x; arr[1] = startNode.position.y; arr[2] = startNode.position.z; } if (endNode) { arr[3] = endNode.position.x; arr[4] = endNode.position.y; arr[5] = endNode.position.z; } line.geometry.attributes.position.needsUpdate = true; } });
-		if (this.particles) { this.particles.rotation.y += 0.0003; this.particles.rotation.x += 0.0001; }
+		// rotate node internals
+		for (let i = 0; i < this.nodes.length; i++) {
+			const n = this.nodes[i];
+			if (n.userData && n.userData.rotatingGroup) {
+				n.userData.rotatingGroup.rotation.y += n.userData.rotationSpeed;
+				n.userData.rotatingGroup.rotation.x += n.userData.rotationSpeed * 0.5;
+			}
+		}
+		// update lines and animate opacity
+		for (let i = 0; i < this.lines.length; i++) {
+			const line = this.lines[i];
+			line.material.opacity = 0.3 + Math.sin(frame * 0.05 + i) * 0.2;
+			const startNode = line.userData.startId ? this.getNodeById(line.userData.startId) : null;
+			const endNode = line.userData.endId ? this.getNodeById(line.userData.endId) : null;
+			if (startNode || endNode) {
+				const arr = line.geometry.attributes.position.array;
+				if (startNode) {
+					arr[0] = startNode.position.x;
+					arr[1] = startNode.position.y;
+					arr[2] = startNode.position.z;
+				}
+				if (endNode) {
+					arr[3] = endNode.position.x;
+					arr[4] = endNode.position.y;
+					arr[5] = endNode.position.z;
+				}
+				line.geometry.attributes.position.needsUpdate = true;
+			}
+		}
+		if (this.particles) {
+			this.particles.rotation.y += 0.0003;
+			this.particles.rotation.x += 0.0001;
+		}
 	}
 
 	render() { this.renderer.render(this.scene, this.camera); }
