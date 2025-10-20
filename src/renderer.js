@@ -40,7 +40,8 @@ export class ArchRenderer {
 			nodeInnerGeo: new THREE.BoxGeometry(0.4, 0.4, 0.4),
 			shaftGeo: new THREE.CylinderGeometry(0.12, 0.12, 1, 12),
 			coneGeo: new THREE.ConeGeometry(0.18, 0.3, 12),
-			planeGeo: new THREE.PlaneGeometry(5.2, 0.9)
+			nodePlateDepth: 0.2,
+			planeGeo: new THREE.BoxGeometry(5.2, 0.9, 0.08)
 		};
 		this._lineMaterials = [];
 		this._setupLighting();
@@ -238,14 +239,18 @@ export class ArchRenderer {
 			side: THREE.DoubleSide
 		});
 		const text3d = new THREE.Mesh(geo, mat);
-		const back = new THREE.Mesh(this._shared.planeGeo, new THREE.MeshBasicMaterial({
-			color: 0x000510,
-			transparent: true,
-			opacity: 0.8,
-			side: THREE.DoubleSide
-		}));
-		back.position.z = -0.05;
-		const edgesGeo = new THREE.EdgesGeometry(this._shared.planeGeo);
+		const plateDepth = this._shared.nodePlateDepth || 0.2;
+		const frontMat = new THREE.MeshStandardMaterial({ color: 0x0a0a12, metalness: 0.1, roughness: 0.6 });
+		const sideMat = new THREE.MeshStandardMaterial({ color: 0x05050a, metalness: 0.05, roughness: 0.8 });
+		const backMat = new THREE.MeshStandardMaterial({ color: 0x000510, metalness: 0.02, roughness: 0.9 });
+		const plateWidth = 5.2;
+		const plateHeight = 0.9;
+		const plateGeo = new THREE.BoxGeometry(plateWidth, plateHeight, plateDepth);
+		const boxMaterials = [sideMat, sideMat, sideMat, sideMat, frontMat, backMat];
+		const back = new THREE.Mesh(plateGeo, boxMaterials);
+		back.position.z = 0;
+		const frontPlane = new THREE.PlaneGeometry(plateWidth, plateHeight);
+		const edgesGeo = new THREE.EdgesGeometry(frontPlane);
 		const posAttr = edgesGeo.attributes.position;
 		const positions = [];
 		for (let i = 0; i < posAttr.count; i++) {
@@ -262,6 +267,9 @@ export class ArchRenderer {
 		this._lineMaterials.push(lineMaterial);
 		if (this.renderer && this.renderer.domElement) lineMaterial.resolution.set(this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight);
 		const frame = new LineSegments2(lineGeometry, lineMaterial);
+		const frontZ = plateDepth / 2;
+		text3d.position.z = frontZ + 0.001;
+		frame.position.z = frontZ + 0.002;
 		const group = new THREE.Group();
 		group.add(back, text3d, frame);
 		this.textCache.set(cacheKey, group);
